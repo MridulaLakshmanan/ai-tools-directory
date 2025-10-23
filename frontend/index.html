@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>All I Need AI - Discover Tomorrow's AI Tools Today</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- Animated Background Particles -->
+  <div class="particles-container">
+    <canvas id="particles-canvas"></canvas>
+  </div>
+
+  <!-- Header Navigation -->
+  <header class="header">
+    <nav class="navbar">
+      <div class="nav-brand">
+        <div class="logo">
+          <span class="logo-icon">🤖</span>
+          <span class="logo-text">All I Need AI</span>
+        </div>
+      </div>
+
+      <div class="nav-menu">
+        <a href="#home" class="nav-link active">Home</a>
+        <a href="#categories" class="nav-link">Categories</a>
+        <a href="#trending" class="nav-link">Trending</a>
+        <button class="nav-link btn-submit" onclick="openSubmissionModal()">Submit Tool</button>
+        <a href="#about" class="nav-link">About</a>
+      </div>
+
+      <button class="mobile-menu-toggle" onclick="toggleMobileMenu()">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+    </nav>
+  </header>
+
+  <!-- Hero Section -->
+  <section class="hero" id="home">
+    <div class="hero-content">
+      <h1 class="hero-title animate-fade-in">
+        Discover Tomorrow's AI Tools Today
+      </h1>
+      <p class="hero-subtitle animate-fade-in-delay">
+        Curated directory of cutting-edge AI tools 
+      </p>
+
+      <!-- 🔹 Centered Large Search Bar -->
+      <div class="hero-search-container animate-fade-in-delay-2">
+        <input
+          type="text"
+          id="search-input"
+          class="hero-search-input"
+          placeholder="🔍 Search for AI tools, categories, or features..."
+        />
+        <button
+          class="hero-search-btn"
+          onclick="scrollToSection('tools-grid')"
+        >
+          Search
+        </button>
+      </div>
+
+      <div class="hero-buttons animate-fade-in-delay-2">
+        <button class="btn btn-primary" onclick="scrollToSection('tools-grid')">
+          <span>Explore Tools</span>
+          <span class="btn-glow"></span>
+        </button>
+        <button class="btn btn-outline" onclick="openSubmissionModal()">
+          <span>Submit Your Tool</span>
+          <span class="btn-glow"></span>
+        </button>
+      </div>
+
+      <div class="hero-stats">
+        <div class="stat-item">
+          <span class="stat-number">15+</span>
+          <span class="stat-label">AI Tools</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-number">11</span>
+          <span class="stat-label">Categories</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-number">847+</span>
+          <span class="stat-label">Reviews</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Trending Tools Section -->
+  <section class="trending-section" id="trending">
+    <div class="section-header">
+      <h2 class="section-title">🔥 Trending Now</h2>
+      <p class="section-subtitle">Most popular AI tools this week</p>
+    </div>
+    <div class="trending-container">
+      <div id="trending-tools" class="trending-tools"></div>
+    </div>
+  </section>
+
+  <!-- Main Content -->
+  <div class="main-container">
+    <aside class="sidebar">
+      <div class="filter-section">
+        <h3>Categories</h3>
+        <div id="category-filters" class="category-filters"></div>
+      </div>
+
+      <div class="filter-section">
+        <h3>Sort By</h3>
+        <select id="sort-select" class="form-control">
+          <option value="popularity">Popularity</option>
+          <option value="rating">Rating</option>
+          <option value="newest">Newest</option>
+          <option value="trending">Trending</option>
+        </select>
+      </div>
+
+      <div class="filter-section">
+        <h3>Rating</h3>
+        <div class="rating-filters">
+          <label class="filter-checkbox">
+            <input type="checkbox" value="4.5" id="rating-4.5" />
+            <span class="checkmark"></span>
+            <span class="rating-stars">⭐⭐⭐⭐⭐ 4.5+</span>
+          </label>
+          <label class="filter-checkbox">
+            <input type="checkbox" value="4.0" id="rating-4.0" />
+            <span class="checkmark"></span>
+            <span class="rating-stars">⭐⭐⭐⭐ 4.0+</span>
+          </label>
+          <label class="filter-checkbox">
+            <input type="checkbox" value="3.5" id="rating-3.5" />
+            <span class="checkmark"></span>
+            <span class="rating-stars">⭐⭐⭐ 3.5+</span>
+          </label>
+        </div>
+      </div>
+    </aside>
+
+    <main class="tools-section" id="tools-grid">
+      <div class="tools-header">
+        <h2>All AI Tools</h2>
+        <div class="view-toggle">
+          <button class="view-btn active" data-view="grid">Grid</button>
+          <button class="view-btn" data-view="list">List</button>
+        </div>
+      </div>
+
+      <div id="tools-grid-container" class="tools-grid"></div>
+
+      <div id="no-results" class="no-results hidden">
+        <div class="no-results-content">
+          <span class="no-results-icon">🔍</span>
+          <h3>No tools found</h3>
+          <p>Try adjusting your filters or search terms</p>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Modals + Scripts -->
+  <div id="tool-modal" class="modal hidden">
+    <div class="modal-overlay" onclick="closeModal()"></div>
+    <div class="modal-content">
+      <button class="modal-close" onclick="closeModal()">✕</button>
+      <div id="modal-body" class="modal-body"></div>
+    </div>
+  </div>
+
+  <div id="submission-modal" class="modal hidden">
+    <div class="modal-overlay" onclick="closeSubmissionModal()"></div>
+    <div class="modal-content">
+      <button class="modal-close" onclick="closeSubmissionModal()">✕</button>
+      <div class="modal-body">
+        <h2>Submit Your AI Tool</h2>
+        <p>Share your amazing AI tool with the community</p>
+        <form id="submission-form" class="submission-form">
+          <div class="form-group">
+            <label class="form-label">Tool Name</label>
+            <input
+              type="text"
+              id="tool-name"
+              class="form-control"
+              placeholder="e.g., GPT-4 Writer"
+              required
+            />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Description</label>
+            <textarea
+              id="tool-description"
+              class="form-control"
+              placeholder="Brief description..."
+              rows="4"
+              required
+            ></textarea>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Website URL</label>
+            <input
+              type="url"
+              id="tool-website"
+              class="form-control"
+              placeholder="https://yourtool.com"
+              required
+            />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Category</label>
+            <select id="tool-category" class="form-control" required>
+              <option value="">Select a category...</option>
+            </select>
+          </div>
+          <div class="form-buttons">
+            <button
+              type="button"
+              class="btn btn-outline"
+              onclick="closeSubmissionModal()"
+            >
+              Cancel
+            </button>
+            <button type="button" class="btn btn-outline" onclick="autoCategorize(event)">
+  <span>✨ Auto Categorize</span>
+  <span class="loading-spinner hidden">⏳</span>
+</button>
+
+            <button type="submit" class="btn btn-primary">
+              <span>Submit Tool</span>
+              <span class="btn-glow"></span>
+            </button>
+
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div id="success-message" class="success-message hidden">
+    <div class="success-content">
+      <span class="success-icon">✨</span>
+      <h3>Success!</h3>
+      <p>Your tool has been submitted successfully!</p>
+    </div>
+  </div>
+<!-- Shared modal for tool details and About content -->
+<div id="tool-modal" class="modal hidden">
+  <div class="modal-content">
+    <div id="modal-body"></div>
+  </div>
+</div>
+
+  <script src="app.js"></script>
+</body>
+</html>
