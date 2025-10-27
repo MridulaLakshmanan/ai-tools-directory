@@ -2013,3 +2013,137 @@ h1, h2, h3, p, label, span, a {
 .category-card:hover span {
   color: #00ffff;
 }
+
+
+/* Dashboard Sidebar */
+/* .dashboard {
+  position: fixed;
+  top: 0;
+  left: -220px;
+  width: 200px;
+  height: 100%;
+  background: rgba(20, 20, 20, 0.95);
+  color: white;
+  box-shadow: 2px 0 10px rgba(0, 0, 0, 0.5);
+  transition: left 0.3s ease;
+  z-index: 9999;
+  padding-top: 60px;
+}
+
+.dashboard ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.dashboard li {
+  padding: 15px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.dashboard li a {
+  color: white;
+  text-decoration: none;
+  font-size: 16px;
+  display: block;
+  transition: background 0.3s;
+}
+
+.dashboard li a:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.dashboard.show {
+  left: 0;
+} */
+/* Dashboard Sidebar — Themed for Dark Neon UI */
+.dashboard {
+  font-family: poppins, sans-serif;
+  position: fixed;
+  top: 0;
+  left: -340px;
+  width: 290px;
+  height: 100%;
+  background: rgba(10, 10, 15, 0.6); /* glassmorphic background */
+  backdrop-filter: blur(12px);
+  border-right: 1px solid rgba(0, 255, 255, 0.2);
+  color: #fff;
+  box-shadow: 4px 0 20px rgba(0, 255, 255, 0.15);
+  transition: left 0.4s ease, box-shadow 0.3s ease;
+  z-index: 9999;
+  padding-top: 70px;
+  font-family: "Poppins", sans-serif;
+}
+
+.dashboard ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.dashboard li {
+  padding: 15px 25px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.dashboard li a {
+  color: #e0fefe;
+  text-decoration: none;
+  font-size: 16px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  transition: all 0.3s ease;
+}
+
+.dashboard li a:hover {
+  color: #00ffff;
+  transform: translateX(6px);
+  text-shadow: 0 0 8px rgba(0, 255, 255, 0.7);
+}
+
+/* Glow when active */
+.dashboard.show {
+  left: 0;
+  box-shadow: 8px 0 30px rgba(0, 255, 255, 0.25);
+}
+.logout{
+  position: absolute;
+  bottom: 20px;
+  width: 100%;
+}
+/* ------- */
+/* Auth Modal (Login/Signup Reminder) */
+.auth-modal {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 9999;
+}
+
+.auth-modal.hidden {
+  display: none;
+}
+
+.auth-modal-content {
+  background: #161b22;
+  color: white;
+  padding: 1.25rem;
+  border-radius: 12px;
+  width: 360px;
+  text-align: center;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.6);
+}
+
+.auth-modal-content button {
+  padding: 0.5rem 0.9rem;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  background: #1f6feb;
+  color: #fff;
+}

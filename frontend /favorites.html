@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Your Favorites</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <h1>Your Favorite Tools ⭐</h1>
+  <div id="favoritesList" class="favorites-container"></div>
+
+  <script>
+    const favoritesList = document.getElementById('favoritesList');
+    const favorites = JSON.parse(localStorage.getItem('favorites')) || [];
+
+    if (favorites.length === 0) {
+      favoritesList.innerHTML = "<p>No favorites yet 💔</p>";
+    } else {
+      favoritesList.innerHTML = favorites.map(fav => `
+        <div class="tool-card">
+          <h3>${fav.name}</h3>
+          <p>${fav.category}</p>
+          <a href="${fav.url}" target="_blank">Visit Tool</a>
+        </div>
+      `).join('');
+    }
+  </script>
+  
+</body>
+</html>

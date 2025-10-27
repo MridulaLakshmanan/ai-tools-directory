@@ -11,7 +11,6 @@
   <div class="particles-container">
     <canvas id="particles-canvas"></canvas>
   </div>
-
   <!-- Header Navigation -->
   <header class="header">
     <nav class="navbar">
@@ -27,7 +26,7 @@
         <a href="#categories" class="nav-link">Categories</a>
         <a href="#trending" class="nav-link">Trending</a>
         <button class="nav-link btn-submit" onclick="openSubmissionModal()">Submit Tool</button>
-        <a href="#about" class="nav-link">About</a>
+        <a href="about.html" class="nav-link">About</a>
       </div>
 
       <button class="mobile-menu-toggle" onclick="toggleMobileMenu()">
@@ -255,6 +254,48 @@
   </div>
 </div>
 
-  <script src="app.js"></script>
+  
+
+<!-- Dashboard Sidebar -->
+<div id="dashboard" class="dashboard">
+  <ul>
+    <li><a href="index.html">🏠 Home</a></li>
+    <li><a href="#">👤 Profile</a></li>
+    <li><a href="#">⭐ Favorites</a></li>
+    <li><a href="#">⚙️ Settings</a></li>
+    <li class="logout"><a href="#">🚪 Logout</a></li>
+  </ul>
+</div>
+
+<script>
+  const dashboard = document.getElementById("dashboard");
+  let isShown = false;
+
+  document.addEventListener("mousemove", (e) => {
+    if (e.clientX < 50) {
+      dashboard.classList.add("show");
+      isShown = true;
+    } else if (isShown && e.clientX > 250) {
+      dashboard.classList.remove("show");
+      isShown = false;
+    }
+  });
+</script>
+<!-- Login / Signup Modal -->
+<div id="loginModal" class="modal hidden" aria-hidden="true">
+  <div class="modal-content">
+    <h3>Enjoying the directory?</h3>
+    <p>Log in or sign up to save favorites and get personalized recommendations.</p>
+    <div style="display:flex;gap:8px;justify-content:center;margin-top:12px;">
+      <button id="modalLoginBtn">Log in</button>
+      <button id="modalSignupBtn">Sign up</button>
+      <button id="modalLaterBtn">Maybe later</button>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+<script type="module" src="./script-auth-timer.js"></script>
+
 </body>
 </html>

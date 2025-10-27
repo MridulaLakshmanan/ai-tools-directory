@@ -530,19 +530,23 @@ function renderToolsGrid() {
 // ---------------------- Event listeners ----------------------
 function setupEventListeners() {
   const searchInput = document.getElementById('search-input');
-  if (searchInput) {
-    let searchTimeout;
-    searchInput.addEventListener('input', function(event) {
-      clearTimeout(searchTimeout);
-      searchTimeout = setTimeout(() => handleSearch(event), 300);
-    });
-    searchInput.addEventListener('keypress', function(event) {
-      if (event.key === 'Enter') {
-        clearTimeout(searchTimeout);
-        handleSearch(event);
-      }
-    });
-  }
+const searchButton = document.querySelector('.hero-search-btn');
+
+// ✅ Remove real-time input listener
+// Search will now happen ONLY when the user clicks the button or presses Enter
+
+if (searchInput && searchButton) {
+  searchButton.addEventListener('click', () => {
+    handleSearch({ target: searchInput });
+  });
+
+  searchInput.addEventListener('keypress', (event) => {
+    if (event.key === 'Enter') {
+      handleSearch({ target: searchInput });
+    }
+  });
+}
+
 
   const sortSelect = document.getElementById('sort-select');
   if (sortSelect) sortSelect.addEventListener('change', handleSort);
@@ -690,12 +694,77 @@ function openToolModal(toolId) {
           <span class="btn-glow"></span>
         </button>
         <button class="btn btn-outline" onclick="closeModal()">Close</button>
+        <!-- ⭐ Favorite button -->
+  <button id="favoriteBtn-${tool.id}" class="favorite-btn">⭐ Add to Favorites</button>
       </div>
+      
     </div>
   `;
 
   modal.classList.remove('hidden');
   document.body.style.overflow = 'hidden';
+  // --- Supabase Favorites Logic ---
+import("https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm").then(async ({ createClient }) => {
+  const supabaseUrl = "https://pjxrjytcurqrmbuhgyoi.supabase.co";
+  const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBqeHJqeXRjdXJxcm1idWhneW9pIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjExMjYxNTcsImV4cCI6MjA3NjcwMjE1N30.H5xP2ZlKFl_-h41I_ZjCcGmt0NLK64eOwO8Ipr2sfZQ";
+  const supabase = createClient(supabaseUrl, supabaseKey);
+
+  const favoriteBtn = document.getElementById(`favoriteBtn-${tool.id}`);
+
+  async function getUser() {
+    const { data: { user } } = await supabase.auth.getUser();
+    return user;
+  }
+
+  async function toggleFavorite() {
+    const user = await getUser();
+    if (!user) {
+      alert("Please log in to save favorites!");
+      return;
+    }
+
+    const { data: existing } = await supabase
+      .from('favorites')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('tool_id', tool.id)
+      .single();
+
+    if (existing) {
+      await supabase.from('favorites').delete().eq('id', existing.id);
+      favoriteBtn.classList.remove('active');
+      favoriteBtn.textContent = "⭐ Add to Favorites";
+    } else {
+      await supabase.from('favorites').insert({
+        user_id: user.id,
+        tool_id: tool.id,
+        tool_name: tool.name,
+        category: tool.category,
+        url: tool.website
+      });
+      favoriteBtn.classList.add('active');
+      favoriteBtn.textContent = "★ Added to Favorites";
+    }
+  }
+
+  favoriteBtn.addEventListener('click', toggleFavorite);
+
+  // On open, check if tool is already favorited
+  const user = await getUser();
+  if (user) {
+    const { data: existing } = await supabase
+      .from('favorites')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('tool_id', tool.id)
+      .single();
+    if (existing) {
+      favoriteBtn.classList.add('active');
+      favoriteBtn.textContent = "★ Added to Favorites";
+    }
+  }
+});
+
 }
 
 function closeModal() {
