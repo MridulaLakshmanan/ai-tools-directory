@@ -13,3 +13,4 @@ Instructions (mac):
    # Edit .env with SUPABASE_URL and SUPABASE_KEY
    uvicorn main:app --reload --port 8000
 3. In the frontend search box, typing >=2 chars will call the backend for recommendations.
+# ai-tools-directory
