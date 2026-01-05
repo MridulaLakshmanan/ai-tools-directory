@@ -1,44 +1,101 @@
-<!doctype html>
-<html>
+<!DOCTYPE html>
+<html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Login - All I Need AI</title>
-  <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <title>Auth</title>
+  <link rel="stylesheet" href="auth.css" />
 </head>
 <body>
-  <div class="auth-container">
-    <h2>Welcome back</h2>
-    <form id="login-form">
-      <input id="login-email" type="email" placeholder="Email" required>
-      <input id="login-password" type="password" placeholder="Password" required>
-      <button type="submit">Log in</button>
-    </form>
-    <p>Or continue with</p>
-    <div>
-      <button id="googleLogin">Google</button>
-      <button id="githubLogin">GitHub</button>
+
+<div class="page">
+  <div class="login-card" id="authCard">
+
+    <!-- FORM PANEL -->
+    <div class="login-panel">
+
+      <!-- LOGIN FORM -->
+      <div class="form login-form">
+        <h2>Login</h2>
+
+        <button class="oauth-btn">Continue with Google</button>
+        <button class="oauth-btn">Continue with GitHub</button>
+
+        <div class="divider">OR</div>
+
+        <div class="field">
+          <input type="email" placeholder="Email" />
+          <span class="icon">📧</span>
+        </div>
+
+        <div class="field">
+          <input type="password" placeholder="Password" />
+          <span class="icon">🔒</span>
+        </div>
+
+        <button class="login-btn">Login</button>
+
+        <p class="switch">
+          Don’t have an account?
+          <span onclick="toggleAuth()">Sign up</span>
+        </p>
+      </div>
+
+      <!-- SIGNUP FORM -->
+      <div class="form signup-form">
+        <h2>Create Account</h2>
+
+        <button class="oauth-btn">Continue with Google</button>
+        <button class="oauth-btn">Continue with GitHub</button>
+
+        <div class="divider">OR</div>
+
+        <div class="field">
+          <input type="email" placeholder="Email" />
+          <span class="icon">📧</span>
+        </div>
+
+        <div class="field">
+          <input type="password" placeholder="Password" />
+          <span class="icon">🔒</span>
+        </div>
+
+        <div class="field">
+          <input type="password" placeholder="Confirm Password" />
+          <span class="icon">🔒</span>
+        </div>
+
+        <button class="login-btn">Sign Up</button>
+
+        <p class="switch">
+          Already have an account?
+          <span onclick="toggleAuth()">Sign in</span>
+        </p>
+      </div>
+
     </div>
-    <p>Don't have an account? <a href="signup.html">Sign up</a></p>
+
+    <!-- GLOW PANEL -->
+    <div class="welcome-panel">
+      <h1 id="panelText">WELCOME<br>BACK!</h1>
+    </div>
+
   </div>
-  <script type="module">
-    import { supabase } from './supabase.js';
-    const form = document.getElementById('login-form');
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const email = document.getElementById('login-email').value;
-      const password = document.getElementById('login-password').value;
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) return alert(error.message);
-      localStorage.setItem('user', JSON.stringify({ id: data.user.id, email: data.user.email }));
-      window.location.href = 'index.html';
-    });
-    document.getElementById('googleLogin').addEventListener('click', () => {
-      supabase.auth.signInWithOAuth({ provider: 'google' });
-    });
-    document.getElementById('githubLogin').addEventListener('click', () => {
-      supabase.auth.signInWithOAuth({ provider: 'github' });
-    });
-  </script>
+</div>
+
+<script>
+  function toggleAuth() {
+    const card = document.getElementById("authCard");
+    const text = document.getElementById("panelText");
+
+    card.classList.toggle("signup-active");
+
+    if (card.classList.contains("signup-active")) {
+      text.innerHTML = "JOIN<br>US!";
+    } else {
+      text.innerHTML = "WELCOME<br>BACK!";
+    }
+  }
+</script>
+
 </body>
 </html>

@@ -1,33 +1,56 @@
-<!doctype html>
-<html>
+<!DOCTYPE html>
+<html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Sign up - All I Need AI</title>
-  <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <title>Sign Up</title>
+  <link rel="stylesheet" href="auth.css" />
 </head>
 <body>
-  <div class="auth-container">
-    <h2>Create account</h2>
-    <form id="signup-form">
-      <input id="signup-email" type="email" placeholder="Email" required>
-      <input id="signup-password" type="password" placeholder="Password" required>
-      <button type="submit">Sign up</button>
-    </form>
-    <p>Already have an account? <a href="login.html">Log in</a></p>
+
+<div class="page">
+  <!-- 👇 modifier class added -->
+  <div class="login-card signup-layout">
+
+    <!-- RIGHT SIGN-UP PANEL -->
+    <div class="login-panel">
+      <h2>Create Account</h2>
+
+      <!-- OAuth -->
+      <button class="oauth-btn">Continue with Google</button>
+      <button class="oauth-btn">Continue with GitHub</button>
+
+      <div class="divider">OR</div>
+
+      <div class="field">
+        <input type="email" placeholder="Email" />
+        <span class="icon">📧</span>
+      </div>
+
+      <div class="field">
+        <input type="password" placeholder="Password" />
+        <span class="icon">🔒</span>
+      </div>
+
+      <div class="field">
+        <input type="password" placeholder="Confirm Password" />
+        <span class="icon">🔒</span>
+      </div>
+
+      <button class="login-btn">Sign Up</button>
+
+      <p class="switch">
+        Already have an account?
+        <a href="login.html">Sign in</a>
+      </p>
+    </div>
+
+    <!-- LEFT DIAGONAL GLOW PANEL -->
+    <div class="welcome-panel">
+      <h1>JOIN<br>US!</h1>
+    </div>
+
   </div>
-  <script type="module">
-    import { supabase } from './supabase.js';
-    const form = document.getElementById('signup-form');
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const email = document.getElementById('signup-email').value;
-      const password = document.getElementById('signup-password').value;
-      const { data, error } = await supabase.auth.signUp({ email, password });
-      if (error) return alert(error.message);
-      alert('Signed up. Check your email to verify.');
-      window.location.href = 'login.html';
-    });
-  </script>
+</div>
+
 </body>
 </html>
