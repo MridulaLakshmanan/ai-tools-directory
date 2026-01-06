@@ -1,0 +1,147 @@
+/* RESET */
+* {
+  box-sizing: border-box;
+  font-family: "Segoe UI", system-ui, sans-serif;
+}
+
+body {
+  margin: 0;
+  background: #020617;
+}
+
+/* CENTER */
+.page {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* CARD */
+.login-card {
+  position: relative;
+  width: 900px;
+  height: 520px;
+  background: #020617;
+  border-radius: 16px;
+  overflow: hidden;
+  transition: all 0.8s ease-in-out;
+
+  box-shadow:
+    0 0 0 2px #22d3ee,
+    0 0 28px rgba(34,211,238,0.8),
+    0 0 65px rgba(34,211,238,0.5);
+}
+
+/* FORM PANEL */
+.login-panel {
+  position: relative;
+  z-index: 10;
+  width: 56%;
+  height: 100%;
+  padding: 45px 80px;
+  color: #e5e7eb;
+  transition: transform 0.8s ease-in-out;
+}
+
+/* FORMS */
+.form {
+  width: 100%;
+  transition: opacity 0.4s ease;
+}
+
+.login-form {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.signup-form {
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+  top: 45px;
+  left: 80px;
+}
+
+/* TOGGLE */
+.login-card.signup-active .login-panel {
+  transform: translateX(80%);
+}
+
+.login-card.signup-active .login-form {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.login-card.signup-active .signup-form {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* BUTTONS */
+.oauth-btn {
+  width: 100%;
+  padding: 10px;
+  margin-bottom: 10px;
+  border-radius: 999px;
+  border: 1px solid #1e293b;
+  background: transparent;
+  color: #e5e7eb;
+  cursor: pointer;
+}
+
+.oauth-btn:hover {
+  border-color: #22d3ee;
+}
+
+/* INPUTS */
+.field {
+  position: relative;
+  margin-bottom: 12px;
+}
+
+.field input {
+  width: 100%;
+  padding: 12px 40px 12px 12px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid #334155;
+  color: #e5e7eb;
+}
+
+/* MAIN BUTTON */
+.login-btn {
+  width: 100%;
+  margin-top: 18px;
+  padding: 13px;
+  border-radius: 999px;
+  border: none;
+  background: linear-gradient(135deg, #0ea5e9, #22d3ee);
+  cursor: pointer;
+}
+
+/* SWITCH */
+.switch span {
+  color: #22d3ee;
+  cursor: pointer;
+}
+
+/* GLOW PANEL */
+.welcome-panel {
+  position: absolute;
+  right: -8%;
+  top: 0;
+  width: 55%;
+  height: 100%;
+  background: linear-gradient(135deg, #0ea5e9, #22d3ee);
+  clip-path: polygon(25% 0, 100% 0, 100% 100%, 0 150%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  transition: transform 0.8s ease-in-out;
+}
+
+.login-card.signup-active .welcome-panel {
+  transform: translateX(-100%);
+}

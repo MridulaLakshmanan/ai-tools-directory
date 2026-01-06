@@ -2073,3 +2073,10 @@ h1, h2, h3, p, label, span, a {
   width: 100%;
 }
 
+/* =========================
+   BACKGROUND / PARTICLES FIX
+   ========================= */
+.particles-container,
+#particles-canvas {
+  pointer-events: none;
+}

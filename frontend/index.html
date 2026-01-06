@@ -263,7 +263,10 @@
     <li><a href="#">👤 Profile</a></li>
     <li><a href="#">⭐ Favorites</a></li>
     <li><a href="#">⚙️ Settings</a></li>
-    <li class="logout"><a href="#">🚪 Logout</a></li>
+    <li class="logout">
+  <a href="#" id="logoutBtn">🚪 Logout</a>
+</li>
+
   </ul>
 </div>
 
@@ -296,6 +299,37 @@
 
 <script src="app.js"></script>
 <script type="module" src="./script-auth-timer.js"></script>
+<!-- =========================
+     SUPABASE AUTH GUARD
+     ========================= -->
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<script>
+  const SUPABASE_URL = "https://pjxrjytcurqrmbuhgyoi.supabase.co";
+  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBqeHJqeXRjdXJxcm1idWhneW9pIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjExMjYxNTcsImV4cCI6MjA3NjcwMjE1N30.H5xP2ZlKFl_-h41I_ZjCcGmt0NLK64eOwO8Ipr2sfZQ";
+
+  const supabase = window.supabase.createClient(
+    SUPABASE_URL,
+    SUPABASE_ANON_KEY
+  );
+
+  // 🔐 Protect this page
+  supabase.auth.getSession().then(({ data }) => {
+    if (!data.session) {
+      // Not logged in → go to login page
+      window.location.href = "login.html";
+    } else {
+      console.log("Logged in user:", data.session.user);
+    }
+  });
+</script>
+<script>
+  document.getElementById("logoutBtn")?.addEventListener("click", async (e) => {
+    e.preventDefault();
+
+    await supabase.auth.signOut();
+    window.location.href = "login.html";
+  });
+</script>
 
 </body>
 </html>
