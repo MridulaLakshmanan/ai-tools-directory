@@ -92,41 +92,52 @@
   </div>
 </div>
 
+<!-- =========================
+     SUPABASE AUTH (SINGLE SOURCE)
+     ========================= -->
 <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+
 <script>
-  const supabase = window.supabase.createClient(
+  // ✅ MUST be global (no type="module")
+  window.supabaseClient = window.supabase.createClient(
     "https://pjxrjytcurqrmbuhgyoi.supabase.co",
-    "YOUR_ANON_KEY"
+    "PASTE_YOUR_REAL_ANON_KEY_HERE"
   );
 
-  async function loginWithGoogle() {
-    await supabase.auth.signInWithOAuth({
+  // ✅ expose functions to window (VERY IMPORTANT)
+  window.loginWithGoogle = async function () {
+    const { error } = await window.supabaseClient.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: "http://localhost:5500/index.html"
+        redirectTo: "http://127.0.0.1:5500/frontend/index.html"
       }
     });
-  }
+    if (error) alert(error.message);
+  };
 
-  async function loginWithGithub() {
-    await supabase.auth.signInWithOAuth({
+  window.loginWithGithub = async function () {
+    const { error } = await window.supabaseClient.auth.signInWithOAuth({
       provider: "github",
       options: {
-        redirectTo: "http://localhost:5500/index.html"
+        redirectTo: "http://127.0.0.1:5500/frontend/index.html"
       }
     });
-  }
+    if (error) alert(error.message);
+  };
 
-  function toggleAuth() {
+  window.toggleAuth = function () {
     const card = document.getElementById("authCard");
     const text = document.getElementById("panelText");
 
     card.classList.toggle("signup-active");
-
     text.innerHTML = card.classList.contains("signup-active")
       ? "JOIN<br>US!"
       : "WELCOME<br>BACK!";
-  }
+  };
+
+  // 🔍 sanity check
+  console.log("loginWithGoogle:", typeof window.loginWithGoogle);
+  console.log("toggleAuth:", typeof window.toggleAuth);
 </script>
 
 </body>
