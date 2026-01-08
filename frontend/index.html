@@ -303,7 +303,7 @@
      SUPABASE AUTH GUARD
      ========================= -->
 <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
-<script>
+<!-- <script>
   const SUPABASE_URL = "https://pjxrjytcurqrmbuhgyoi.supabase.co";
   const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBqeHJqeXRjdXJxcm1idWhneW9pIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjExMjYxNTcsImV4cCI6MjA3NjcwMjE1N30.H5xP2ZlKFl_-h41I_ZjCcGmt0NLK64eOwO8Ipr2sfZQ";
 
@@ -321,7 +321,7 @@
       console.log("Logged in user:", data.session.user);
     }
   });
-</script>
+</script> -->
 <script>
   document.getElementById("logoutBtn")?.addEventListener("click", async (e) => {
     e.preventDefault();
@@ -329,6 +329,33 @@
     await supabase.auth.signOut();
     window.location.href = "login.html";
   });
+</script>
+<script type="module">
+  import { recommend } from "./recommendation.js";
+
+  const tools = window.ALL_TOOLS;       // wherever you store tools
+  const categories = window.ALL_CATEGORIES;
+
+  const searchInput = document.getElementById("search-input");
+
+  searchInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      const query = e.target.value;
+
+      const result = recommend(query, tools, categories);
+
+      console.log("RECOMMENDATION RESULT:", result);
+
+      renderRecommendations(result);
+    }
+  });
+
+  function renderRecommendations(result) {
+    if (result.categories.length > 0) {
+      showCategoryBanner(result.categories[0]);
+    }
+    renderTools(result.tools);
+  }
 </script>
 
 </body>

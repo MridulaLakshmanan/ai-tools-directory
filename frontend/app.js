@@ -1,4 +1,8 @@
+// const RECOMMEND_API = "http://127.0.0.1:8001/api/recommend";
+
 // AI Tools Directory JavaScript
+let isSemanticMode = false;
+
 const aiToolsData = {
   "aiTools": [
     {
@@ -266,7 +270,7 @@ const aiToolsData = {
 async function fetchRecommendationsFromBackend(query, limit = 12) {
   if (!query) return [];
   try {
-    const resp = await fetch("http://127.0.0.1:8000/api/recommend", {
+    const resp = await fetch("http://127.0.0.1:8001/api/recommend", {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
@@ -548,6 +552,7 @@ if (searchInput && searchButton) {
 }
 
 
+
   const sortSelect = document.getElementById('sort-select');
   if (sortSelect) sortSelect.addEventListener('change', handleSort);
 
@@ -707,7 +712,10 @@ function openToolModal(toolId) {
 import("https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm").then(async ({ createClient }) => {
   const supabaseUrl = "https://pjxrjytcurqrmbuhgyoi.supabase.co";
   const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBqeHJqeXRjdXJxcm1idWhneW9pIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjExMjYxNTcsImV4cCI6MjA3NjcwMjE1N30.H5xP2ZlKFl_-h41I_ZjCcGmt0NLK64eOwO8Ipr2sfZQ";
-  const supabase = createClient(supabaseUrl, supabaseKey);
+  window.supabaseClient =
+  window.supabaseClient || createClient(supabaseUrl, supabaseKey);
+
+const supabase = window.supabaseClient;
 
   const favoriteBtn = document.getElementById(`favoriteBtn-${tool.id}`);
 
@@ -904,52 +912,55 @@ function showSuccessMessage() {
 }
 
 // ---------------------- Search, filters, sort ----------------------
-function handleSearch(event) {
+async function handleSearch(event) {
   const searchTerm = event.target.value.toLowerCase().trim();
   activeFilters.search = searchTerm;
 
-  const searchContainer = event.target.closest('.search-container') || event.target.closest('.hero-search-container');
-  if (searchTerm) {
-    if (searchContainer) {
-      searchContainer.style.borderColor = '#00ffff';
-      searchContainer.style.boxShadow = '0 0 20px rgba(0, 255, 255, 0.3)';
-    }
-  } else {
-    if (searchContainer) {
-      searchContainer.style.borderColor = '';
-      searchContainer.style.boxShadow = '';
-    }
+  // UI glow (unchanged)
+  const searchContainer =
+    event.target.closest('.search-container') ||
+    event.target.closest('.hero-search-container');
+
+  if (searchTerm && searchContainer) {
+    searchContainer.style.borderColor = '#00ffff';
+    searchContainer.style.boxShadow = '0 0 20px rgba(0, 255, 255, 0.3)';
   }
 
-  // Try remote recommendations first for richer results
-  (async () => {
-    if (!searchTerm) {
-      // If empty, restore local data if backup exists, then apply local filters
-      if (aiToolsData._localBackup) {
-        aiToolsData.aiTools = aiToolsData._localBackup;
-        delete aiToolsData._localBackup;
-      }
-      applyFilters();
-      return;
-    }
-    const remote = await fetchRecommendationsFromBackend(searchTerm, 12);
-    if (remote && remote.length > 0) {
-      // Temporarily replace tools with remote results
-      if (!aiToolsData._localBackup) aiToolsData._localBackup = [...aiToolsData.aiTools];
-      aiToolsData.aiTools = remote;
-      applyFilters();
-      return;
-    }
-    // fallback to local filtering
+  // 🔁 EMPTY SEARCH → RESTORE LOCAL
+  if (!searchTerm) {
+    isSemanticMode = false;
+
     if (aiToolsData._localBackup) {
       aiToolsData.aiTools = aiToolsData._localBackup;
       delete aiToolsData._localBackup;
     }
-    applyFilters();
-  })();
 
-  if (searchTerm) setTimeout(() => scrollToSection('tools-grid'), 300);
+    filteredTools = [...aiToolsData.aiTools];
+    renderToolsGrid();
+    return;
+  }
+
+  // 🔥 SEMANTIC SEARCH
+  const remote = await fetchRecommendationsFromBackend(searchTerm, 12);
+
+  if (remote.length > 0) {
+    isSemanticMode = true;
+
+    if (!aiToolsData._localBackup) {
+      aiToolsData._localBackup = [...aiToolsData.aiTools];
+    }
+
+    filteredTools = remote;
+    renderToolsGrid();
+    scrollToSection('tools-grid');
+    return;
+  }
+
+  // 🟡 FALLBACK → LOCAL FILTER
+  isSemanticMode = false;
+  applyFilters();
 }
+
 
 function handleCategoryFilter(category) {
   // toggle category in activeFilters (local only)
@@ -980,6 +991,11 @@ function handleSort(event) {
 
 // Apply filters (local)
 function applyFilters() {
+  if (isSemanticMode) {
+    filteredTools = [...aiToolsData.aiTools];
+    renderToolsGrid();
+    return;
+  }
   filteredTools = aiToolsData.aiTools.filter(tool => {
     if (activeFilters.search) {
       const searchTerm = activeFilters.search;
@@ -1065,3 +1081,6 @@ document.addEventListener('DOMContentLoaded', () => {
     observer.observe(card);
   });
 });
+
+
+

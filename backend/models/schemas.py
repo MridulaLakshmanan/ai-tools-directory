@@ -20,3 +20,5 @@ class Tool(BaseModel):
 
 class RecommendResponse(BaseModel):
     recommendations: List[Tool]
+    detected_category: Optional[str] = None
+    suggested_categories: Optional[List[str]] = []
