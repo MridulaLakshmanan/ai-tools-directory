@@ -935,6 +935,9 @@ async function handleSearch(event) {
       delete aiToolsData._localBackup;
     }
 
+    // clear any previous remote results when search is cleared
+    if (aiToolsData._remoteResults) delete aiToolsData._remoteResults;
+
     filteredTools = [...aiToolsData.aiTools];
     renderToolsGrid();
     return;
@@ -950,7 +953,9 @@ async function handleSearch(event) {
       aiToolsData._localBackup = [...aiToolsData.aiTools];
     }
 
-    filteredTools = remote;
+    // store the latest remote results so filters / view toggles keep them
+    aiToolsData._remoteResults = remote;
+    filteredTools = [...remote];
     renderToolsGrid();
     scrollToSection('tools-grid');
     return;
@@ -992,7 +997,9 @@ function handleSort(event) {
 // Apply filters (local)
 function applyFilters() {
   if (isSemanticMode) {
-    filteredTools = [...aiToolsData.aiTools];
+    // When in semantic mode, preserve and show the remote recommendations
+    // (don't fall back to the full local dataset)
+    filteredTools = aiToolsData._remoteResults ? [...aiToolsData._remoteResults] : [];
     renderToolsGrid();
     return;
   }
