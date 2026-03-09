@@ -7,3 +7,4 @@ numpy
 pydantic
 requests
 beautifulsoup4
+playwright
