@@ -452,7 +452,7 @@ function renderTrendingTools() {
   if (!container) return;
   const trendingTools = aiToolsData.aiTools.filter(tool => tool.trending);
   container.innerHTML = trendingTools.map(tool => `
-    <div class="trending-card" onclick="openToolModal(${tool.id})">
+    <div class="trending-card" onclick="openToolModal('${tool.id}')">
       <div class="trending-badge">🔥 Trending</div>
       <div class="tool-header">
         <div class="tool-logo">${tool.logo}</div>
@@ -500,7 +500,7 @@ function renderToolsGrid() {
   noResults.classList.add('hidden');
 
   container.innerHTML = filteredTools.map(tool => `
-    <div class="tool-card" onclick="openToolModal(${tool.id})">
+    <div class="tool-card" onclick="openToolModal('${tool.id}')">
       ${tool.trending ? '<div class="trending-indicator">🔥 Trending</div>' : ''}
       <div class="tool-header">
         <div class="tool-logo">${tool.logo}</div>
@@ -523,7 +523,7 @@ function renderToolsGrid() {
         <button class="btn btn-outline btn-sm" onclick="event.stopPropagation(); window.open('${tool.website}', '_blank')">
           Try Tool
         </button>
-        <button class="btn btn-primary btn-sm" onclick="event.stopPropagation(); openToolModal(${tool.id})">
+        <button class="btn btn-primary btn-sm" onclick="event.stopPropagation(); openToolModal('${tool.id}')">
           View Details
         </button>
       </div>
@@ -645,7 +645,21 @@ function filterByCategory(categoryName) {
 
 // ---------------------- Modal helpers ----------------------
 function openToolModal(toolId) {
-  const tool = aiToolsData.aiTools.find(t => t.id === toolId);
+  // Search both main list and any remote results (scraped tools)
+  const allTools = [
+    ...aiToolsData.aiTools,
+    ...(aiToolsData._remoteResults || []),
+    ...(aiToolsData._localBackup || [])
+  ];
+  // Deduplicate by id then find — use == for loose type matching (string vs number)
+  const seen = new Set();
+  const deduped = allTools.filter(t => {
+    const key = String(t.id);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  const tool = deduped.find(t => String(t.id) == String(toolId));
   if (!tool) return;
   const modal = document.getElementById('tool-modal');
   const modalBody = document.getElementById('modal-body');
@@ -678,7 +692,7 @@ function openToolModal(toolId) {
       <div class="reviews-section">
         <h3 style="margin-bottom: 20px; color: #00ffff;">Reviews & Sentiment Analysis</h3>
         <div class="reviews-list">
-          ${tool.reviews.map(review => `
+          ${(tool.reviews || []).map(review => `
             <div class="review-item" style="background: rgba(255,255,255,0.05); padding: 16px; border-radius: 8px; margin-bottom: 16px;">
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                 <strong>${review.user}</strong>
@@ -708,71 +722,56 @@ function openToolModal(toolId) {
 
   modal.classList.remove('hidden');
   document.body.style.overflow = 'hidden';
+
   // --- Supabase Favorites Logic ---
-import("https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm").then(async ({ createClient }) => {
-  const supabaseUrl = "https://pjxrjytcurqrmbuhgyoi.supabase.co";
-  const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBqeHJqeXRjdXJxcm1idWhneW9pIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjExMjYxNTcsImV4cCI6MjA3NjcwMjE1N30.H5xP2ZlKFl_-h41I_ZjCcGmt0NLK64eOwO8Ipr2sfZQ";
-  window.supabaseClient =
-  window.supabaseClient || createClient(supabaseUrl, supabaseKey);
+  (async () => {
+    try {
+      const SUPABASE_URL = "https://pjxrjytcurqrmbuhgyoi.supabase.co";
+      const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBqeHJqeXRjdXJxcm1idWhneW9pIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjExMjYxNTcsImV4cCI6MjA3NjcwMjE1N30.H5xP2ZlKFl_-h41I_ZjCcGmt0NLK64eOwO8Ipr2sfZQ";
+      if (!window.supabaseClient && window.supabase) {
+        window.supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      }
+      const supabase = window.supabaseClient;
+      if (!supabase) return;
 
-const supabase = window.supabaseClient;
+      const favoriteBtn = document.getElementById(`favoriteBtn-${tool.id}`);
+      if (!favoriteBtn) return;
 
-  const favoriteBtn = document.getElementById(`favoriteBtn-${tool.id}`);
+      async function getUser() {
+        const { data: { user } } = await supabase.auth.getUser();
+        return user;
+      }
 
-  async function getUser() {
-    const { data: { user } } = await supabase.auth.getUser();
-    return user;
-  }
+      async function toggleFavorite() {
+        const user = await getUser();
+        if (!user) { alert("Please log in to save favorites!"); return; }
+        const { data: existing } = await supabase.from('favorites').select('*')
+          .eq('user_id', user.id).eq('tool_id', String(tool.id)).single();
+        if (existing) {
+          await supabase.from('favorites').delete().eq('id', existing.id);
+          favoriteBtn.classList.remove('active');
+          favoriteBtn.textContent = "⭐ Add to Favorites";
+        } else {
+          await supabase.from('favorites').insert({
+            user_id: user.id, tool_id: String(tool.id),
+            tool_name: tool.name, category: tool.category, url: tool.website
+          });
+          favoriteBtn.classList.add('active');
+          favoriteBtn.textContent = "★ Added to Favorites";
+        }
+      }
 
-  async function toggleFavorite() {
-    const user = await getUser();
-    if (!user) {
-      alert("Please log in to save favorites!");
-      return;
+      favoriteBtn.addEventListener('click', toggleFavorite);
+      const user = await getUser();
+      if (user) {
+        const { data: existing } = await supabase.from('favorites').select('id')
+          .eq('user_id', user.id).eq('tool_id', String(tool.id)).single();
+        if (existing) { favoriteBtn.classList.add('active'); favoriteBtn.textContent = "★ Added to Favorites"; }
+      }
+    } catch (err) {
+      console.warn('Favorites unavailable:', err.message);
     }
-
-    const { data: existing } = await supabase
-      .from('favorites')
-      .select('*')
-      .eq('user_id', user.id)
-      .eq('tool_id', tool.id)
-      .single();
-
-    if (existing) {
-      await supabase.from('favorites').delete().eq('id', existing.id);
-      favoriteBtn.classList.remove('active');
-      favoriteBtn.textContent = "⭐ Add to Favorites";
-    } else {
-      await supabase.from('favorites').insert({
-        user_id: user.id,
-        tool_id: tool.id,
-        tool_name: tool.name,
-        category: tool.category,
-        url: tool.website
-      });
-      favoriteBtn.classList.add('active');
-      favoriteBtn.textContent = "★ Added to Favorites";
-    }
-  }
-
-  favoriteBtn.addEventListener('click', toggleFavorite);
-
-  // On open, check if tool is already favorited
-  const user = await getUser();
-  if (user) {
-    const { data: existing } = await supabase
-      .from('favorites')
-      .select('id')
-      .eq('user_id', user.id)
-      .eq('tool_id', tool.id)
-      .single();
-    if (existing) {
-      favoriteBtn.classList.add('active');
-      favoriteBtn.textContent = "★ Added to Favorites";
-    }
-  }
-});
-
+  })();
 }
 
 function closeModal() {
@@ -1088,6 +1087,3 @@ document.addEventListener('DOMContentLoaded', () => {
     observer.observe(card);
   });
 });
-
-
-
