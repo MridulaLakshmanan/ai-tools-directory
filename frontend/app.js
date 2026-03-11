@@ -478,7 +478,70 @@ function renderTrendingTools() {
 function renderCategoryFilters() {
   const container = document.getElementById('category-filters');
   if (!container) return;
-  container.innerHTML = aiToolsData.categories.map(category => `
+
+  // Show local categories immediately, then replace with live Supabase data
+  _buildCategoryFiltersHTML(aiToolsData.categories, container);
+
+  (async () => {
+    try {
+      const SUPABASE_URL = "https://pjxrjytcurqrmbuhgyoi.supabase.co";
+      const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBqeHJqeXRjdXJxcm1idWhneW9pIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjExMjYxNTcsImV4cCI6MjA3NjcwMjE1N30.H5xP2ZlKFl_-h41I_ZjCcGmt0NLK64eOwO8Ipr2sfZQ";
+      if (!window.supabaseClient && window.supabase) {
+        window.supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      }
+      const supabase = window.supabaseClient;
+      if (!supabase) return;
+
+      const { data } = await supabase
+        .from('ai_tools').select('category').eq('approved', true).not('category', 'is', null);
+      if (!data) return;
+
+      const catMap = {};
+      data.forEach(({ category }) => { catMap[category] = (catMap[category] || 0) + 1; });
+
+      const categoryMeta = {
+        "Contents":{"icon":"📋","color":"#00ffff"},
+        "Image":{"icon":"🎨","color":"#f472b6"},
+        "Audio":{"icon":"🎙️","color":"#06b6d4"},
+        "Other":{"icon":"🔧","color":"#6b7280"},
+        "Code":{"icon":"💻","color":"#10b981"},
+        "Related Awesome Lists":{"icon":"📚","color":"#f59e0b"},
+        "Video":{"icon":"🎬","color":"#8b5cf6"},
+        "Learn AI free":{"icon":"🎓","color":"#84cc16"},
+        "Learning resources":{"icon":"📖","color":"#3b82f6"},
+        "AI Assistant":{"icon":"🤖","color":"#00ffff"},
+        "Image Generation":{"icon":"🖼️","color":"#f472b6"},
+        "Video Generation":{"icon":"🎬","color":"#8b5cf6"},
+        "Development":{"icon":"💻","color":"#10b981"},
+        "Content Writing":{"icon":"✍️","color":"#f59e0b"},
+        "Research":{"icon":"🔍","color":"#3b82f6"},
+        "Design":{"icon":"🎯","color":"#ef4444"},
+        "Voice Generation":{"icon":"🎙️","color":"#06b6d4"},
+        "Productivity":{"icon":"📝","color":"#84cc16"},
+        "Translation":{"icon":"🌐","color":"#6366f1"},
+        "Writing Assistant":{"icon":"📚","color":"#ec4899"},
+        "Writing":{"icon":"✍️","color":"#ec4899"},
+        "NVIDIA Platform Extensions":{"icon":"⚡","color":"#76b900"}
+      };
+
+      const liveCategories = Object.entries(catMap)
+        .sort((a, b) => b[1] - a[1])
+        .map(([name, count]) => ({
+          name, count,
+          icon: (categoryMeta[name] || {}).icon || "🔧",
+          color: (categoryMeta[name] || {}).color || "#00ffff"
+        }));
+
+      aiToolsData.categories = liveCategories;
+      _buildCategoryFiltersHTML(liveCategories, container);
+    } catch (err) {
+      console.warn("Live categories failed:", err.message);
+    }
+  })();
+}
+
+function _buildCategoryFiltersHTML(categories, container) {
+  container.innerHTML = categories.map(category => `
     <label class="filter-checkbox">
       <input type="checkbox" value="${category.name}" onchange="handleCategoryFilter('${category.name}')">
       <span class="checkmark"></span>
@@ -645,21 +708,20 @@ function filterByCategory(categoryName) {
 
 // ---------------------- Modal helpers ----------------------
 function openToolModal(toolId) {
-  // Search both main list and any remote results (scraped tools)
-  const allTools = [
+  // Search hardcoded tools + any Supabase-loaded tools (category filter / semantic search)
+  const allPools = [
     ...aiToolsData.aiTools,
-    ...(aiToolsData._remoteResults || []),
-    ...(aiToolsData._localBackup || [])
+    ...(aiToolsData._supabaseTools || []),
+    ...(aiToolsData._remoteResults || [])
   ];
-  // Deduplicate by id then find — use == for loose type matching (string vs number)
   const seen = new Set();
-  const deduped = allTools.filter(t => {
-    const key = String(t.id);
-    if (seen.has(key)) return false;
-    seen.add(key);
+  const deduped = allPools.filter(t => {
+    const k = String(t.id);
+    if (seen.has(k)) return false;
+    seen.add(k);
     return true;
   });
-  const tool = deduped.find(t => String(t.id) == String(toolId));
+  const tool = deduped.find(t => String(t.id) === String(toolId));
   if (!tool) return;
   const modal = document.getElementById('tool-modal');
   const modalBody = document.getElementById('modal-body');
@@ -723,7 +785,7 @@ function openToolModal(toolId) {
   modal.classList.remove('hidden');
   document.body.style.overflow = 'hidden';
 
-  // --- Supabase Favorites Logic ---
+  // --- Supabase Favorites Logic (uses window.supabase already loaded in index.html) ---
   (async () => {
     try {
       const SUPABASE_URL = "https://pjxrjytcurqrmbuhgyoi.supabase.co";
@@ -760,7 +822,6 @@ function openToolModal(toolId) {
           favoriteBtn.textContent = "★ Added to Favorites";
         }
       }
-
       favoriteBtn.addEventListener('click', toggleFavorite);
       const user = await getUser();
       if (user) {
@@ -967,11 +1028,74 @@ async function handleSearch(event) {
 
 
 function handleCategoryFilter(category) {
-  // toggle category in activeFilters (local only)
   const idx = activeFilters.categories.indexOf(category);
   if (idx > -1) activeFilters.categories.splice(idx, 1);
   else activeFilters.categories.push(category);
-  applyFilters();
+
+  if (activeFilters.categories.length === 0) {
+    // Nothing selected — restore local tools
+    filteredTools = [...aiToolsData.aiTools];
+    renderToolsGrid();
+    return;
+  }
+
+  // Fetch matching tools from Supabase
+  (async () => {
+    try {
+      const SUPABASE_URL = "https://pjxrjytcurqrmbuhgyoi.supabase.co";
+      const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBqeHJqeXRjdXJxcm1idWhneW9pIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjExMjYxNTcsImV4cCI6MjA3NjcwMjE1N30.H5xP2ZlKFl_-h41I_ZjCcGmt0NLK64eOwO8Ipr2sfZQ";
+      if (!window.supabaseClient && window.supabase) {
+        window.supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      }
+      const supabase = window.supabaseClient;
+      if (!supabase) { applyFilters(); return; }
+
+      // Loading indicator
+      const container = document.getElementById('tools-grid-container');
+      if (container) {
+        container.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:48px;color:rgba(255,255,255,0.5);">
+          <div style="font-size:32px;margin-bottom:12px;">⏳</div><p>Loading tools...</p></div>`;
+      }
+
+      const { data, error } = await supabase
+        .from('ai_tools')
+        .select('id, name, description, category, url, rating, pricing, website')
+        .eq('approved', true)
+        .in('category', activeFilters.categories)
+        .order('rating', { ascending: false });
+
+      if (error || !data) { applyFilters(); return; }
+
+      const normalised = data.map(t => ({
+        id: t.id,
+        name: t.name || '',
+        category: t.category || '',
+        description: t.description || '',
+        rating: parseFloat(t.rating) || 4.0,
+        pricing: t.pricing || '',
+        trending: false,
+        popularity: 50,
+        website: t.website || t.url || '',
+        logo: getCategoryIcon(t.category),
+        reviews: []
+      }));
+
+      // ✅ KEY FIX: persist Supabase tools so openToolModal can find them
+      if (!aiToolsData._supabaseTools) aiToolsData._supabaseTools = [];
+      normalised.forEach(tool => {
+        if (!aiToolsData._supabaseTools.find(t => t.id === tool.id)) {
+          aiToolsData._supabaseTools.push(tool);
+        }
+      });
+
+      filteredTools = normalised;
+      renderToolsGrid();
+      scrollToSection('tools-grid');
+    } catch (err) {
+      console.warn('Category filter fetch error:', err.message);
+      applyFilters();
+    }
+  })();
 }
 
 function handleRatingFilter() {
