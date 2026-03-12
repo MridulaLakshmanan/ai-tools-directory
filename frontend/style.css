@@ -1032,10 +1032,12 @@ body {
 }
 
 .stat-label {
+  display: block;
   font-size: var(--font-size-sm);
   color: rgba(255, 255, 255, 0.6);
   text-transform: uppercase;
   letter-spacing: 1px;
+  margin-top: 4px;
 }
 
 /* Trending Section */
@@ -1084,6 +1086,7 @@ body {
 
 .trending-card {
   min-width: 320px;
+  max-width: 320px;
   background: linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(244, 114, 182, 0.2));
   border: 1px solid rgba(139, 92, 246, 0.3);
   border-radius: var(--radius-lg);
@@ -1092,6 +1095,17 @@ body {
   position: relative;
   cursor: pointer;
   transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Truncate description inside trending cards to 3 lines */
+.trending-card .tool-description {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  flex-grow: 1;
 }
 
 .trending-card::before {
@@ -1288,6 +1302,9 @@ body {
   position: relative;
   overflow: hidden;
   transform-style: preserve-3d;
+  /* Uniform card height */
+  display: flex;
+  flex-direction: column;
 }
 
 .tool-card::before {
@@ -1353,6 +1370,12 @@ body {
   color: rgba(255, 255, 255, 0.7);
   line-height: 1.6;
   margin-bottom: var(--space-20);
+  /* Clamp to 3 lines on cards */
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  flex-grow: 1;
 }
 
 .tool-meta {
@@ -1385,6 +1408,13 @@ body {
 .tool-actions {
   display: flex;
   gap: var(--space-12);
+  margin-top: auto;
+  padding-top: var(--space-16);
+}
+
+/* Ensure tool-meta doesn't flex-grow */
+.tool-meta {
+  flex-shrink: 0;
 }
 
 .btn-sm {
@@ -1468,6 +1498,20 @@ body {
 
 .modal-body {
   padding: var(--space-32);
+}
+
+/* ✅ Full description inside modal — override card truncation */
+.modal-body .tool-description,
+.modal-body .tool-detail .tool-description {
+  display: block !important;
+  -webkit-line-clamp: unset !important;
+  -webkit-box-orient: unset !important;
+  overflow: visible !important;
+  flex-grow: unset !important;
+  font-size: 16px;
+  line-height: 1.7;
+  color: rgba(255, 255, 255, 0.85);
+  margin: var(--space-24) 0;
 }
 
 .submission-form {

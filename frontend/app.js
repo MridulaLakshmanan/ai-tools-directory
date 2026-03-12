@@ -329,6 +329,67 @@ function initializeApp() {
   renderToolsGrid();
   setupEventListeners();
   populateSubmissionForm();
+  fetchAndAnimateStats();
+}
+
+// ---------------------- Dynamic Hero Stats from Supabase ----------------------
+const SUPABASE_URL_STATS = "https://pjxrjytcurqrmbuhgyoi.supabase.co";
+const SUPABASE_ANON_KEY_STATS = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBqeHJqeXRjdXJxcm1idWhneW9pIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjExMjYxNTcsImV4cCI6MjA3NjcwMjE1N30.H5xP2ZlKFl_-h41I_ZjCcGmt0NLK64eOwO8Ipr2sfZQ";
+
+async function fetchAndAnimateStats() {
+  try {
+    const headers = {
+      'apikey': SUPABASE_ANON_KEY_STATS,
+      'Authorization': `Bearer ${SUPABASE_ANON_KEY_STATS}`,
+      'Content-Type': 'application/json',
+      'Prefer': 'count=exact'
+    };
+
+    // Use HEAD request with count=exact to get total without fetching all rows
+    const toolsRes = await fetch(
+      `${SUPABASE_URL_STATS}/rest/v1/ai_tools?select=*`,
+      { method: 'HEAD', headers }
+    );
+    const contentRange = toolsRes.headers.get('content-range') || '';
+    // content-range format: "0-24/353"
+    const totalTools = parseInt(contentRange.split('/')[1]) || 353;
+
+    // Fetch distinct category count (small payload - just category column)
+    const catRes = await fetch(
+      `${SUPABASE_URL_STATS}/rest/v1/ai_tools?select=category`,
+      { headers: { 'apikey': SUPABASE_ANON_KEY_STATS, 'Authorization': `Bearer ${SUPABASE_ANON_KEY_STATS}` } }
+    );
+    const catData = await catRes.json();
+    const totalCategories = new Set(catData.map(r => r.category).filter(Boolean)).size;
+
+    // Animate both counters with live data
+    animateCounter('stat-tools', totalTools, '+');
+    animateCounter('stat-categories', totalCategories, '');
+
+  } catch (err) {
+    console.warn('Could not fetch live stats, animating with known values.', err);
+    // Always animate — even on error, show correct known counts
+    animateCounter('stat-tools', 353, '+');
+    animateCounter('stat-categories', 19, '');
+  }
+}
+
+function animateCounter(elementId, target, suffix = '') {
+  const el = document.getElementById(elementId);
+  if (!el) return;
+  const duration = 1800;
+  const startTime = performance.now();
+
+  function update(now) {
+    const elapsed = now - startTime;
+    const progress = Math.min(elapsed / duration, 1);
+    const eased = 1 - Math.pow(1 - progress, 3); // ease-out cubic
+    const current = Math.floor(target * eased);
+    el.textContent = current.toLocaleString() + suffix;
+    if (progress < 1) requestAnimationFrame(update);
+    else el.textContent = target.toLocaleString() + suffix;
+  }
+  requestAnimationFrame(update);
 }
 
 // Load saved tools from localStorage and merge
