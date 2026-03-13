@@ -1,12 +1,34 @@
 from playwright.sync_api import sync_playwright
 from bs4 import BeautifulSoup
 
-URL = "https://github.com/mahseema/awesome-ai-tools"
+# ── All GitHub awesome-list URLs to scrape ──────────────────────────────────
+GITHUB_URLS = [
+    # Original source
+    "https://github.com/mahseema/awesome-ai-tools",
+    # Additional high-quality awesome lists
+    "https://github.com/ai-for-developers/awesome-ai-coding-tools",
+    "https://github.com/steven2358/awesome-generative-ai",
+    "https://github.com/e2b-dev/awesome-ai-agents",
+    "https://github.com/Hannibal046/Awesome-LLM",
+    "https://github.com/awesome-selfhosted/awesome-selfhosted",  # has AI section
+    "https://github.com/eugeneyan/applied-ml",
+]
 
 INVALID_CATEGORIES = [
     "Text",
-    "Editor's Choice"
+    "Editor's Choice",
+    "Contents",
+    "Table of Contents",
+    "Contributing",
+    "License",
+    "Acknowledgements",
 ]
+
+# Noise patterns that indicate a section header, not a tool
+NOISE_STARTS = (
+    "🌟", "📝", "👩", "🖼", "📽", "🎙", "🎨",
+    "➡", "⬆", "🔝", "📌", "🗂", "💡", "📋"
+)
 
 
 def clean_text(text):
@@ -14,88 +36,88 @@ def clean_text(text):
 
 
 def is_valid_tool(name, description):
-    """
-    Filters out non-tool entries like section headings or noise
-    """
-
     if not name:
         return False
-
-    # remove emoji headings
-    if name.startswith(("🌟", "📝", "👩", "🖼", "📽", "🎙", "🎨")):
+    if name.startswith(NOISE_STARTS):
         return False
-
-    # too short = probably not a tool
     if len(name) < 3:
         return False
-
-    # category titles often contain "AI"
+    # skip pure anchor/nav links
+    if name.lower() in ("back to top", "contents", "table of contents", "contributing", "license"):
+        return False
+    # category titles with "AI" and ≤2 words are usually headings
     if "AI" in name and len(name.split()) <= 2:
         return False
-
     return True
 
 
-def scrape_github():
-
+def _scrape_single_github(page, url):
+    """Scrape one GitHub awesome-list URL and return list of tool dicts."""
     tools = []
     current_category = None
 
-    # Launch Playwright browser
-    with sync_playwright() as p:
-
-        browser = p.chromium.launch(headless=True)
-        page = browser.new_page()
-
-        page.goto(URL)
-
+    try:
+        page.goto(url, timeout=30000)
+        page.wait_for_timeout(2000)
         html = page.content()
-
-        browser.close()
+    except Exception as e:
+        print(f"  [WARN] Failed to load {url}: {e}")
+        return tools
 
     soup = BeautifulSoup(html, "html.parser")
-
     article = soup.select_one("article")
-
     if article is None:
         return tools
 
-    for element in article.find_all(["h2", "li"]):
-
-        # Detect category sections
-        if element.name == "h2":
-
-            header = clean_text(element.text)
-
-            if header not in INVALID_CATEGORIES:
+    for element in article.find_all(["h2", "h3", "li"]):
+        if element.name in ("h2", "h3"):
+            header = clean_text(element.get_text())
+            if header not in INVALID_CATEGORIES and len(header) > 2:
                 current_category = header
 
-        # Extract tools
         elif element.name == "li":
-
             link = element.find("a")
-
             if not link:
                 continue
 
-            name = clean_text(link.text)
+            name = clean_text(link.get_text())
+            website = link.get("href", "")
 
-            website = link.get("href")
+            # Skip internal GitHub anchor links
+            if not website or website.startswith("#"):
+                continue
 
-            text = clean_text(element.text)
-
-            description = text.replace(name, "").replace("-", "").strip()
+            text = clean_text(element.get_text())
+            description = text.replace(name, "").lstrip(" -–—").strip()
 
             if not is_valid_tool(name, description):
                 continue
 
-            tool = {
+            tools.append({
                 "name": name,
                 "description": description,
-                "category": current_category,
-                "website": website
-            }
+                "category": current_category or "Other",
+                "website": website,
+            })
 
-            tools.append(tool)
-
+    print(f"  [OK] {url}  →  {len(tools)} tools")
     return tools
+
+
+def scrape_github():
+    """Scrape all configured GitHub awesome-list URLs."""
+    all_tools = []
+
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        page = browser.new_page()
+
+        for url in GITHUB_URLS:
+            print(f"Scraping: {url}")
+            tools = _scrape_single_github(page, url)
+            all_tools.extend(tools)
+
+        browser.close()
+
+    print(f"GitHub total (pre-dedup): {len(all_tools)}")
+    return all_tools
