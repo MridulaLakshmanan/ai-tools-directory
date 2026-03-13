@@ -8,3 +8,4 @@ pydantic
 requests
 beautifulsoup4
 playwright
+groq==0.9.0
