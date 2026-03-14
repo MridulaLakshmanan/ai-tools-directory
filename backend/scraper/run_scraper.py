@@ -1,81 +1,120 @@
 """
-run_scraper.py  —  Master scraper runner
-=========================================
-Sources:
-  1. github_scraper       — mahseema/awesome-ai-tools + 6 more awesome lists
-  2. futurepedia_scraper  — futurepedia.io
-  3. theresanai_scraper   — theresanai.com
-  4. directories_scraper  — aitoptools, aitoolsdirectory, topai.tools, insidr.ai
+backend/run_scraper.py
+------------------------
+REPLACE your existing run_scraper.py with this file.
 
-Run:
-    python run_scraper.py
+AI-Powered Master Scraper — this is the only file you need to run.
+
+Pipeline:
+  1. GitHub scraper      — 8 awesome-list repos via Jina + Groq AI
+  2. Futurepedia scraper — futurepedia.io paginated (up to 10 pages)
+  3. theresanai scraper  — theresanai.com (14 category pages)
+  4. Normalize           — shape data to match Supabase schema exactly
+  5. Deduplicate         — remove duplicate names in-memory
+  6. Insert              — skip tools already in Supabase, insert new ones
+
+Safe to re-run anytime:
+  Already-existing tools are checked by name before inserting.
+  Running again will only add genuinely new tools.
+
+Usage:
+  cd backend
+  python run_scraper.py
 """
 
-from scraper.sources.github_scraper import scrape_github
+from scraper.sources.github_scraper      import scrape_github
 from scraper.sources.futurepedia_scraper import scrape_futurepedia
-from scraper.sources.theresanai_scraper import scrape_theresanai
-from scraper.sources.directories_scraper import scrape_directories
+from scraper.sources.theresanai_scraper  import scrape_theresanai
 
-from scraper.pipeline.normalize import normalize_tool
+from scraper.pipeline.normalize   import normalize_tool
 from scraper.pipeline.deduplicate import remove_duplicates
 
 from utils.supabase_client import get_client
 
-supabase = get_client()
-
 
 def run():
-    print("\n=== Scraping GitHub awesome lists ===")
+    print("\n" + "=" * 60)
+    print("  AI(n)AI — Scraper Starting")
+    print("=" * 60)
+
+    # ── Step 1: Collect raw tools from all 3 sources ──────────────
+    print("\n[1/3] Scraping GitHub awesome lists...")
     github_tools = scrape_github()
 
-    print("\n=== Scraping Futurepedia ===")
+    print("\n[2/3] Scraping Futurepedia...")
     futurepedia_tools = scrape_futurepedia()
 
-    print("\n=== Scraping There's An AI ===")
+    print("\n[3/3] Scraping There's An AI...")
     theresanai_tools = scrape_theresanai()
 
-    print("\n=== Scraping AI Tool Directories ===")
-    directory_tools = scrape_directories()
+    # ── Step 2: Combine all sources ───────────────────────────────
+    raw_all = github_tools + futurepedia_tools + theresanai_tools
+    print(f"\n{'=' * 60}")
+    print(f"  Raw tools collected:   {len(raw_all)}")
 
-    # Combine all sources
-    all_tools = github_tools + futurepedia_tools + theresanai_tools + directory_tools
-    print(f"\nTotal raw tools collected: {len(all_tools)}")
+    # ── Step 3: Normalize (shape to Supabase schema) ──────────────
+    normalized = [normalize_tool(t) for t in raw_all]
 
-    # Normalize + deduplicate
-    normalized = [normalize_tool(t) for t in all_tools]
+    # ── Step 4: Deduplicate in-memory ─────────────────────────────
     normalized = remove_duplicates(normalized)
-    print(f"After deduplication: {len(normalized)}")
+    print(f"  After deduplication:   {len(normalized)}")
+    print("=" * 60)
 
-    # Insert only new tools (skip existing by name)
-    inserted = 0
-    skipped = 0
+    # ── Step 5: Insert new tools into Supabase ────────────────────
+    print("\nInserting into Supabase (skipping already-existing tools)...\n")
+
+    supabase         = get_client()
+    inserted         = 0
+    skipped_existing = 0
+    skipped_invalid  = 0
 
     for tool in normalized:
-        # Skip tools with no name or clearly invalid entries
-        if not tool.get("name") or len(tool["name"]) < 3:
-            skipped += 1
+        name    = tool.get("name", "")
+        url     = tool.get("url", "") or tool.get("website", "") or ""
+
+        # ── Guard 1: Skip invalid/empty entries ───────────────────
+        if not name or len(name) < 3:
+            skipped_invalid += 1
             continue
 
-        # Skip anchor-only URLs
-        url = tool.get("url", "") or ""
-        if url.startswith("#") or not url:
-            skipped += 1
+        # ── Guard 2: Skip anchor-only or missing URLs ─────────────
+        if not url or url.startswith("#"):
+            skipped_invalid += 1
             continue
 
-        existing = supabase.table("ai_tools") \
-            .select("name") \
-            .eq("name", tool["name"]) \
-            .execute()
+        # ── Guard 3: Skip if already in Supabase (by name) ────────
+        try:
+            existing = (
+                supabase
+                .table("ai_tools")
+                .select("name")
+                .eq("name", name)
+                .execute()
+            )
+        except Exception as e:
+            print(f"  [DB warn] Could not check '{name}': {e}")
+            skipped_invalid += 1
+            continue
 
         if existing.data:
-            skipped += 1
+            skipped_existing += 1
             continue
 
-        supabase.table("ai_tools").insert(tool).execute()
-        inserted += 1
-        print(f"  Inserted: {tool['name']}")
+        # ── Insert new tool ───────────────────────────────────────
+        try:
+            supabase.table("ai_tools").insert(tool).execute()
+            inserted += 1
+            print(f"  ✅  {name}")
+        except Exception as e:
+            print(f"  [DB error] Could not insert '{name}': {e}")
+            skipped_invalid += 1
 
-    print(f"\n✅ Done — Inserted: {inserted}, Skipped (existing/invalid): {skipped}")
+    # ── Summary ───────────────────────────────────────────────────
+    print("\n" + "=" * 60)
+    print(f"  ✅  Inserted:            {inserted} new tools")
+    print(f"  ⏭   Already in DB:      {skipped_existing} tools (skipped)")
+    print(f"  ❌  Invalid/skipped:    {skipped_invalid} entries")
+    print("=" * 60 + "\n")
 
 
 if __name__ == "__main__":

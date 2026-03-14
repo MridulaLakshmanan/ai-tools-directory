@@ -1,80 +1,60 @@
-from playwright.sync_api import sync_playwright
-from bs4 import BeautifulSoup
+"""
+scraper/sources/theresanai_scraper.py
+----------------------------------------
+NEW FILE — Add this to backend/scraper/sources/
 
-URL = "https://theresanai.com"
+Scrapes theresanai.com across 14 category pages.
+theresanai.com is one of the largest AI tool directories with 5000+ tools.
+
+Strategy:
+  - Jina Reader fetches each category page as clean markdown (free, no key)
+  - Groq AI extracts structured tool data from the markdown
+  - No Playwright needed — Jina handles JS rendering for these pages
+
+To add more categories: append URLs to THERESANAI_URLS below.
+"""
+
+from scraper.pipeline.groq_extractor import extract_tools_with_ai, fetch_markdown_via_jina
+
+THERESANAI_URLS = [
+    "https://theresanai.com",
+    "https://theresanai.com/category/writing",
+    "https://theresanai.com/category/image-generation",
+    "https://theresanai.com/category/video",
+    "https://theresanai.com/category/audio",
+    "https://theresanai.com/category/coding",
+    "https://theresanai.com/category/productivity",
+    "https://theresanai.com/category/research",
+    "https://theresanai.com/category/marketing",
+    "https://theresanai.com/category/chatbots",
+    "https://theresanai.com/category/design",
+    "https://theresanai.com/category/education",
+    "https://theresanai.com/category/business",
+    "https://theresanai.com/category/social-media",
+]
 
 
-def scrape_theresanai():
+def scrape_theresanai() -> list[dict]:
     """
-    Scrapes theresanai.com — one of the largest AI tool directories.
-    Scrolls to load all lazy-loaded tool cards, then extracts name,
-    description, category, and website URL for each tool.
+    Scrape all theresanai.com category pages.
+
+    Returns:
+        List of raw tool dicts: [{name, description, category, website}, ...]
     """
-    tools = []
+    all_tools = []
 
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
-        page = browser.new_page()
+    for url in THERESANAI_URLS:
+        print(f"\n  theresanai.com → {url}")
 
-        print("Loading theresanai.com ...")
-        page.goto(URL, timeout=60000)
+        markdown = fetch_markdown_via_jina(url)
 
-        # Scroll down repeatedly to trigger lazy loading
-        for _ in range(10):
-            page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-            page.wait_for_timeout(1500)
-
-        html = page.content()
-        browser.close()
-
-    soup = BeautifulSoup(html, "html.parser")
-
-    # theresanai.com uses cards — try multiple selectors
-    # Primary: anchor tags wrapping tool cards
-    cards = soup.select("a[href*='/tool/']") or soup.select("a[href*='/ai/']")
-
-    if not cards:
-        # Fallback: any article or div with a link and heading
-        cards = soup.select("article") or soup.select(".tool-card")
-
-    print(f"  Found {len(cards)} raw cards on theresanai.com")
-
-    seen = set()
-    for card in cards:
-        # Name — look for h2, h3, or strong inside the card
-        name_tag = card.find(["h2", "h3", "h4", "strong"])
-        if not name_tag:
+        if not markdown:
+            print(f"    [Skip] No content returned — moving on")
             continue
-        name = name_tag.get_text(strip=True)
-        if not name or name in seen or len(name) < 3:
-            continue
-        seen.add(name)
 
-        # Description
-        desc_tag = card.find("p")
-        description = desc_tag.get_text(strip=True) if desc_tag else ""
+        tools = extract_tools_with_ai(markdown, source_hint=url)
+        all_tools.extend(tools)
+        print(f"    Running total: {len(all_tools)}")
 
-        # Website URL
-        href = card.get("href", "")
-        if href.startswith("/"):
-            website = URL + href
-        elif href.startswith("http"):
-            website = href
-        else:
-            website = URL
-
-        # Category — look for a tag/badge element
-        category_tag = card.find(class_=lambda c: c and any(
-            k in c.lower() for k in ["category", "tag", "badge", "label"]
-        ))
-        category = category_tag.get_text(strip=True) if category_tag else "Other"
-
-        tools.append({
-            "name": name,
-            "description": description,
-            "category": category,
-            "website": website,
-        })
-
-    print(f"  Extracted {len(tools)} tools from theresanai.com")
-    return tools
+    print(f"\n  theresanai.com scraper done — {len(all_tools)} tools")
+    return all_tools

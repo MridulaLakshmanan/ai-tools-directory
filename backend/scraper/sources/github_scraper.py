@@ -1,123 +1,58 @@
-from playwright.sync_api import sync_playwright
-from bs4 import BeautifulSoup
+"""
+backend/scraper/sources/github_scraper.py
+--------------------------------------------
+REPLACE your existing github_scraper.py with this file.
 
-# ── All GitHub awesome-list URLs to scrape ──────────────────────────────────
+What changed:
+  - Now scrapes 8 repos instead of 1
+  - Uses Jina Reader (free) instead of Playwright for GitHub pages
+  - Uses Groq AI instead of BeautifulSoup for extraction
+  - No CSS selectors — works even if GitHub changes layout
+  - Handles any README structure automatically
+
+To add more repos: just append a URL to GITHUB_URLS below.
+"""
+
+from scraper.pipeline.groq_extractor import extract_tools_with_ai, fetch_markdown_via_jina
+
+# ── Repos to scrape ───────────────────────────────────────────────────────────
+# Jina converts GitHub READMEs to clean markdown — no Playwright needed here
 GITHUB_URLS = [
-    # Original source
-    "https://github.com/mahseema/awesome-ai-tools",
-    # Additional high-quality awesome lists
-    "https://github.com/ai-for-developers/awesome-ai-coding-tools",
-    "https://github.com/steven2358/awesome-generative-ai",
-    "https://github.com/e2b-dev/awesome-ai-agents",
-    "https://github.com/Hannibal046/Awesome-LLM",
-    "https://github.com/awesome-selfhosted/awesome-selfhosted",  # has AI section
-    "https://github.com/eugeneyan/applied-ml",
+    "https://github.com/mahseema/awesome-ai-tools",        # original source
+    "https://github.com/steven2358/awesome-generative-ai",  # generative AI tools
+    "https://github.com/e2b-dev/awesome-ai-agents",        # AI agents
+    "https://github.com/Hannibal046/Awesome-LLM",          # LLM tools & resources
+    "https://github.com/ai-for-developers/awesome-ai-coding-tools",  # coding tools
+    "https://github.com/humanloop/awesome-chatgpt",        # ChatGPT ecosystem
+    "https://github.com/filipecalegario/awesome-generative-ai",     # more gen AI
+    "https://github.com/fr0gger/Awesome-GPT-Agents",       # GPT agents
 ]
 
-INVALID_CATEGORIES = [
-    "Text",
-    "Editor's Choice",
-    "Contents",
-    "Table of Contents",
-    "Contributing",
-    "License",
-    "Acknowledgements",
-]
 
-# Noise patterns that indicate a section header, not a tool
-NOISE_STARTS = (
-    "🌟", "📝", "👩", "🖼", "📽", "🎙", "🎨",
-    "➡", "⬆", "🔝", "📌", "🗂", "💡", "📋"
-)
+def scrape_github() -> list:
+    """
+    Scrape all GitHub awesome-list repos.
+    Uses Jina Reader to convert READMEs → markdown,
+    then Groq AI to extract structured tool data.
 
-
-def clean_text(text):
-    return text.strip().replace("\n", " ").replace("  ", " ")
-
-
-def is_valid_tool(name, description):
-    if not name:
-        return False
-    if name.startswith(NOISE_STARTS):
-        return False
-    if len(name) < 3:
-        return False
-    # skip pure anchor/nav links
-    if name.lower() in ("back to top", "contents", "table of contents", "contributing", "license"):
-        return False
-    # category titles with "AI" and ≤2 words are usually headings
-    if "AI" in name and len(name.split()) <= 2:
-        return False
-    return True
-
-
-def _scrape_single_github(page, url):
-    """Scrape one GitHub awesome-list URL and return list of tool dicts."""
-    tools = []
-    current_category = None
-
-    try:
-        page.goto(url, timeout=30000)
-        page.wait_for_timeout(2000)
-        html = page.content()
-    except Exception as e:
-        print(f"  [WARN] Failed to load {url}: {e}")
-        return tools
-
-    soup = BeautifulSoup(html, "html.parser")
-    article = soup.select_one("article")
-    if article is None:
-        return tools
-
-    for element in article.find_all(["h2", "h3", "li"]):
-        if element.name in ("h2", "h3"):
-            header = clean_text(element.get_text())
-            if header not in INVALID_CATEGORIES and len(header) > 2:
-                current_category = header
-
-        elif element.name == "li":
-            link = element.find("a")
-            if not link:
-                continue
-
-            name = clean_text(link.get_text())
-            website = link.get("href", "")
-
-            # Skip internal GitHub anchor links
-            if not website or website.startswith("#"):
-                continue
-
-            text = clean_text(element.get_text())
-            description = text.replace(name, "").lstrip(" -–—").strip()
-
-            if not is_valid_tool(name, description):
-                continue
-
-            tools.append({
-                "name": name,
-                "description": description,
-                "category": current_category or "Other",
-                "website": website,
-            })
-
-    print(f"  [OK] {url}  →  {len(tools)} tools")
-    return tools
-
-
-def scrape_github():
-    """Scrape all configured GitHub awesome-list URLs."""
+    Returns:
+        List of raw tool dicts: [{name, description, category, website}, ...]
+    """
     all_tools = []
 
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
-        page = browser.new_page()
+    for url in GITHUB_URLS:
+        print(f"\n  GitHub → {url}")
 
-        for url in GITHUB_URLS:
-            print(f"Scraping: {url}")
-            tools = _scrape_single_github(page, url)
-            all_tools.extend(tools)
+        # Jina converts the README to plain text for free — no auth needed
+        markdown = fetch_markdown_via_jina(url)
 
-        browser.close()
+        if not markdown:
+            print(f"    [Skip] No content returned from Jina")
+            continue
 
-    print(f"GitHub total (pre-dedup): {len(all_tools)}")
+        tools = extract_tools_with_ai(markdown, source_hint=url)
+        all_tools.extend(tools)
+        print(f"    Running total: {len(all_tools)}")
+
+    print(f"\n  GitHub scraper done — {len(all_tools)} tools collected")
     return all_tools
