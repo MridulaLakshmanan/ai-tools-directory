@@ -1,34 +1,22 @@
 """
 backend/scraper/pipeline/deduplicate.py
 ------------------------------------------
-REPLACE your existing deduplicate.py with this file.
-
-Removes duplicate tools by name (case-insensitive).
-Also filters out tools with no name at all.
+REPLACE your existing file at: backend/scraper/pipeline/deduplicate.py
 """
 
 
 def remove_duplicates(tools: list) -> list:
     """
-    Keep only the first occurrence of each tool name.
-    Case-insensitive comparison.
-
-    Args:
-        tools: List of tool dicts (normalized or raw)
-
-    Returns:
-        Deduplicated list — same order, first occurrence kept
+    Remove tools with duplicate names (case-insensitive).
+    Keeps the first occurrence. Skips tools with no name.
     """
     seen   = set()
     unique = []
 
     for tool in tools:
         name = str(tool.get("name", "")).strip().lower()
-
-        # Skip completely nameless tools
         if not name:
             continue
-
         if name not in seen:
             seen.add(name)
             unique.append(tool)

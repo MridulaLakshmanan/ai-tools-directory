@@ -1,15 +1,9 @@
 """
 backend/scraper/pipeline/normalize.py
 ----------------------------------------
-REPLACE your existing normalize.py with this file.
+REPLACE your existing file at: backend/scraper/pipeline/normalize.py
 
 Shapes raw scraped tool dicts into the exact Supabase ai_tools schema.
-
-Supabase columns this writes to:
-  name, description, category, tags, url, website,
-  rating, pricing, embedding, approved, added_by
-
-Does NOT include 'id' — Supabase auto-generates that as a UUID.
 """
 
 from scraper.pipeline.embedding import generate_embedding
@@ -24,36 +18,34 @@ def normalize_tool(tool: dict) -> dict:
     description = str(tool.get("description", "")).strip()
     category    = str(tool.get("category", "Other")).strip() or "Other"
     website     = str(tool.get("website", "")).strip()
+    url         = website
 
-    # Both url and website columns store the same value
-    url = website
-
-    # Build simple tags from category — cheap, no AI needed
+    # Build simple tags from category
     tags = ["ai"]
     if category and category.lower() != "other":
         tags.append(
             category.lower().replace(" ", "_").replace("&", "and")
         )
 
-    # Generate embedding locally using sentence-transformers (free, runs offline)
+    # Generate embedding locally — free, runs offline
     embedding = None
     if description:
         try:
             embedding = generate_embedding(description)
         except Exception:
-            embedding = None  # Column is nullable — safe to skip on error
+            embedding = None  # Column is nullable — safe to skip
 
     return {
-        # NOTE: Do NOT include 'id' — Supabase auto-generates it
+        # Do NOT include 'id' — Supabase auto-generates it as UUID
         "name":        name,
         "description": description,
         "category":    category,
         "tags":        tags,
         "url":         url,
         "website":     website,
-        "rating":      None,      # Null at scrape time — can be filled later
-        "pricing":     None,      # Null at scrape time — can be filled later
+        "rating":      None,
+        "pricing":     None,
         "embedding":   embedding,
-        "approved":    True,      # Auto-approve all scraped tools
+        "approved":    True,
         "added_by":    "scraper",
     }

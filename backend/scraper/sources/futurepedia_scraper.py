@@ -1,40 +1,34 @@
 """
-scraper/sources/futurepedia_scraper.py
------------------------------------------
-REPLACE your existing futurepedia_scraper.py with this file.
+backend/scraper/sources/futurepedia_scraper.py
+------------------------------------------------
+REPLACE your existing file at: backend/scraper/sources/futurepedia_scraper.py
 
-What changed from your old version:
-  - Now paginated — scrapes up to 10 pages instead of just page 1
-  - Groq AI extracts tools — no hardcoded h3/p tag selectors
-  - Scrolls page before extracting to trigger lazy-loaded content
-  - Stops gracefully when no more tools are found
-  - Still uses Playwright (needed — futurepedia is JS-heavy)
+Scrapes futurepedia.io across multiple pages using:
+  - Playwright to render JS-heavy pages
+  - Groq AI to extract tools from page text
+  - Stops automatically when no more tools are found
 """
 
 from playwright.sync_api import sync_playwright
 from scraper.pipeline.groq_extractor import extract_tools_with_ai
 
 BASE_URL  = "https://www.futurepedia.io/ai-tools"
-MAX_PAGES = 10   # increase this if you want even more tools
+MAX_PAGES = 10  # increase if you want more results
 
 
 def _get_page_text(page) -> str:
-    """
-    Wait for tool cards, scroll to load lazy content,
-    then return the page's visible text.
-    """
-    # Wait for tool cards to appear (up to 10s)
+    """Scroll to load lazy content then return visible page text."""
     try:
         page.wait_for_selector("a[href*='/tool/']", timeout=10000)
     except Exception:
-        pass  # continue even if selector never appears
+        pass  # Continue even if selector never appears
 
-    # Scroll 3 times to trigger lazy loading
+    # Scroll 3 times to trigger lazy-loaded cards
     for _ in range(3):
         page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
         page.wait_for_timeout(1500)
 
-    # Try to get just the main content area text (less noise)
+    # Try to get just the main content area first (cleaner text)
     for selector in ["main", "#__next", "body"]:
         try:
             el = page.query_selector(selector)
@@ -48,12 +42,9 @@ def _get_page_text(page) -> str:
     return ""
 
 
-def scrape_futurepedia() -> list[dict]:
+def scrape_futurepedia() -> list:
     """
-    Scrape Futurepedia across multiple pages with AI extraction.
-
-    Returns:
-        List of raw tool dicts: [{name, description, category, website}, ...]
+    Scrape Futurepedia across multiple pages using AI extraction.
     """
     all_tools = []
 
@@ -68,7 +59,7 @@ def scrape_futurepedia() -> list[dict]:
             try:
                 page.goto(url, timeout=30000)
             except Exception as e:
-                print(f"    [Error] Could not load page {page_num}: {e}")
+                print(f"    [Error] Could not load: {e}")
                 break
 
             text = _get_page_text(page)
@@ -78,11 +69,11 @@ def scrape_futurepedia() -> list[dict]:
                 break
 
             tools = extract_tools_with_ai(
-                text, source_hint=f"futurepedia-page-{page_num}"
+                text, source_hint=f"futurepedia-page{page_num}"
             )
 
             if not tools:
-                print(f"    [Stop] No tools found on page {page_num} — end of results")
+                print(f"    [Stop] No tools found — reached end of results")
                 break
 
             all_tools.extend(tools)
@@ -90,5 +81,5 @@ def scrape_futurepedia() -> list[dict]:
 
         browser.close()
 
-    print(f"\n  Futurepedia scraper done — {len(all_tools)} tools")
+    print(f"\n  Futurepedia scraper done — {len(all_tools)} tools collected")
     return all_tools

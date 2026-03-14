@@ -1,18 +1,14 @@
 """
 backend/scraper/pipeline/groq_extractor.py
 --------------------------------------------
-NEW FILE — Add this to your scraper/pipeline/ folder.
+REPLACE your existing groq_extractor.py
 
-Uses Groq's FREE API (Llama 3.3 70B) to extract structured AI tool
-data from any page text or markdown.
-
-Replaces BeautifulSoup tag-hunting entirely.
-Works on any site layout — no selectors needed.
-
-Free limits (Groq):
-  - 14,400 requests/day
-  - No credit card needed
-  - Get key: https://console.groq.com
+Key changes in this version:
+  1. NO truncation — all pages fully processed regardless of size
+  2. Smart rate limiting — calculates pause based on chunk size
+     so large repos (100+ chunks) process completely without hitting limits
+  3. Exponential backoff on rate limit errors (15s → 30s → 60s)
+  4. "AI Assistants" matches DB category exactly
 """
 
 import os
@@ -28,13 +24,18 @@ load_dotenv()
 # ── Config ────────────────────────────────────────────────────────────────────
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
 MODEL        = "llama-3.3-70b-versatile"
-CHUNK_SIZE   = 3500   # chars per request — safe under token limit
-OVERLAP      = 200    # overlap between chunks so no tools are missed at edges
-DELAY        = 1.5    # seconds between requests — stays under rate limit
+CHUNK_SIZE   = 3000    # chars per request (~750 tokens input — leaves room for output)
+OVERLAP      = 200     # overlap between chunks so no tools are missed at edges
 
-# Your 14 Supabase categories (must match exactly what's in your DB)
+# Groq free tier: 6000 tokens/minute
+# Each chunk ≈ 750 input + ~500 output = ~1250 tokens
+# So max safe rate = 6000 / 1250 = ~4.8 requests/min = ~12.5s between requests
+# We use 13s to be safely under the limit with no rate limit errors at all
+DELAY_BETWEEN_CHUNKS = 13.0
+
+# !! Must match your Supabase DB categories EXACTLY (case-sensitive) !!
 VALID_CATEGORIES = [
-    "AI Assistant",
+    "AI Assistants",           # with 's' — matches your DB
     "Image Generation",
     "Video Generation",
     "Development & Code",
@@ -59,18 +60,18 @@ Each object must have exactly these keys:
 - "name": tool name (string)
 - "description": 1-2 sentences about what the tool does (string)
 - "category": MUST be exactly one of: {json.dumps(VALID_CATEGORIES)}
-- "website": tool URL (string, empty string "" if not found)
+- "website": tool URL (string, use empty string "" if not found)
 
 Rules:
 - Skip navigation links, section headings, table of contents, "back to top" links
 - Skip anything that is not a real usable software tool
 - Write a short description if one is missing
-- Never duplicate the same tool name
+- Never include the same tool name twice
 - Return [] if no tools found
 """
 
-# ── Lazy Groq client ──────────────────────────────────────────────────────────
 _groq_client = None
+
 
 def _get_client():
     global _groq_client
@@ -85,8 +86,11 @@ def _get_client():
     return _groq_client
 
 
-def _call_groq(text_chunk: str, source: str) -> list:
-    """Send one text chunk to Groq. Returns list of tool dicts. Never raises."""
+def _call_groq(text_chunk: str, source: str, retry: int = 0) -> list:
+    """
+    Send one text chunk to Groq. Returns list of tool dicts. Never raises.
+    Uses exponential backoff on rate limits: 15s → 30s → 60s, max 3 retries.
+    """
     client = _get_client()
 
     try:
@@ -138,27 +142,36 @@ def _call_groq(text_chunk: str, source: str) -> list:
     except Exception as e:
         err = str(e).lower()
         if "rate" in err or "429" in err:
-            print(f"    [Rate limit] Waiting 15s before retry...")
-            time.sleep(15)
-            try:
-                return _call_groq(text_chunk, source)
-            except Exception:
+            if retry >= 3:
+                print(f"    [Rate limit] Max retries hit — skipping chunk from {source}")
                 return []
+            # Exponential backoff: 15s, 30s, 60s
+            wait = 15 * (2 ** retry)
+            print(f"    [Rate limit] Waiting {wait}s (retry {retry + 1}/3)...")
+            time.sleep(wait)
+            return _call_groq(text_chunk, source, retry=retry + 1)
+
         print(f"    [Groq warn] {source}: {e}")
         return []
 
 
 def extract_tools_with_ai(text: str, source_hint: str = "unknown") -> list:
     """
-    Main extraction function.
-    Takes any raw page text / markdown, returns deduplicated tool list.
+    Extract AI tools from any page text or markdown using Groq AI.
+
+    Processes the FULL page regardless of size — no truncation.
+    Uses a 13s delay between chunks to stay safely under Groq's
+    6,000 tokens/minute free tier limit.
+
+    For a 350,000 char page (~117 chunks) this takes ~25 minutes.
+    For a 30,000 char page (~10 chunks) this takes ~2 minutes.
 
     Args:
         text:        Raw text from Playwright inner_text() or Jina markdown
-        source_hint: Label used in logs (usually the URL being scraped)
+        source_hint: URL or label used in log output
 
     Returns:
-        List of dicts: [{"name", "description", "category", "website"}, ...]
+        Deduplicated list of dicts: [{name, description, category, website}]
     """
     if not text or len(text.strip()) < 50:
         return []
@@ -170,10 +183,13 @@ def extract_tools_with_ai(text: str, source_hint: str = "unknown") -> list:
         chunks.append(text[start: start + CHUNK_SIZE])
         start += CHUNK_SIZE - OVERLAP
 
+    total_chars = len(text)
+    est_minutes = round((len(chunks) * DELAY_BETWEEN_CHUNKS) / 60, 1)
+    print(f"    Extracting: {source_hint}")
+    print(f"    {total_chars:,} chars → {len(chunks)} chunks → ~{est_minutes} min estimated")
+
     all_tools  = []
     seen_names = set()
-
-    print(f"    Extracting via AI: {source_hint} ({len(chunks)} chunk{'s' if len(chunks) != 1 else ''})")
 
     for i, chunk in enumerate(chunks):
         tools = _call_groq(chunk, source_hint)
@@ -182,18 +198,24 @@ def extract_tools_with_ai(text: str, source_hint: str = "unknown") -> list:
             if key not in seen_names:
                 seen_names.add(key)
                 all_tools.append(tool)
-        if i < len(chunks) - 1:
-            time.sleep(DELAY)
 
-    print(f"    → {len(all_tools)} tools extracted")
+        # Progress indicator for large repos
+        if len(chunks) > 10:
+            print(f"    chunk {i+1}/{len(chunks)} — {len(all_tools)} tools so far")
+
+        # Always wait between chunks to respect rate limit
+        if i < len(chunks) - 1:
+            time.sleep(DELAY_BETWEEN_CHUNKS)
+
+    print(f"    → {len(all_tools)} tools extracted from {source_hint}")
     return all_tools
 
 
 def fetch_markdown_via_jina(url: str) -> str:
     """
-    Converts any URL → clean markdown using Jina Reader.
-    Completely free, no API key needed.
-    Best for GitHub READMEs and static pages.
+    Convert any URL to clean markdown using Jina Reader.
+    Completely free — no API key needed.
+    Best for GitHub READMEs and simple static pages.
 
     Args:
         url: Any webpage URL

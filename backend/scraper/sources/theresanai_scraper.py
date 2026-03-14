@@ -1,17 +1,12 @@
 """
-scraper/sources/theresanai_scraper.py
-----------------------------------------
-NEW FILE — Add this to backend/scraper/sources/
+backend/scraper/sources/theresanai_scraper.py
+-----------------------------------------------
+NEW FILE — place at: backend/scraper/sources/theresanai_scraper.py
 
-Scrapes theresanai.com across 14 category pages.
-theresanai.com is one of the largest AI tool directories with 5000+ tools.
-
-Strategy:
-  - Jina Reader fetches each category page as clean markdown (free, no key)
-  - Groq AI extracts structured tool data from the markdown
-  - No Playwright needed — Jina handles JS rendering for these pages
-
-To add more categories: append URLs to THERESANAI_URLS below.
+Scrapes theresanai.com across 14 category pages using:
+  - Jina Reader (free, no key) to fetch pages as clean markdown
+  - Groq AI to extract structured tool data
+  - No Playwright needed for this source
 """
 
 from scraper.pipeline.groq_extractor import extract_tools_with_ai, fetch_markdown_via_jina
@@ -34,12 +29,10 @@ THERESANAI_URLS = [
 ]
 
 
-def scrape_theresanai() -> list[dict]:
+def scrape_theresanai() -> list:
     """
     Scrape all theresanai.com category pages.
-
-    Returns:
-        List of raw tool dicts: [{name, description, category, website}, ...]
+    Uses Jina Reader to fetch markdown, Groq AI to extract tools.
     """
     all_tools = []
 
@@ -49,12 +42,12 @@ def scrape_theresanai() -> list[dict]:
         markdown = fetch_markdown_via_jina(url)
 
         if not markdown:
-            print(f"    [Skip] No content returned — moving on")
+            print(f"    [Skip] No content returned from Jina")
             continue
 
         tools = extract_tools_with_ai(markdown, source_hint=url)
         all_tools.extend(tools)
         print(f"    Running total: {len(all_tools)}")
 
-    print(f"\n  theresanai.com scraper done — {len(all_tools)} tools")
+    print(f"\n  theresanai.com scraper done — {len(all_tools)} tools collected")
     return all_tools
