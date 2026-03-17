@@ -1,13 +1,5 @@
 """
 backend/scraper/pipeline/groq_extractor.py
---------------------------------------------
-REPLACE your existing groq_extractor.py
-
-Key fix: DELAY_BETWEEN_CHUNKS increased to 20s (was 13s).
-The e2b-dev repo was still hitting rate limits at 13s because
-it's 353k chars — the model responses are longer for agent-heavy content,
-consuming more output tokens and pushing past the 6k/min limit.
-20s gives a solid buffer.
 """
 
 import os
@@ -20,12 +12,10 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# ── Config ────────────────────────────────────────────────────────────────────
-CHUNK_SIZE           = 3000
-OVERLAP              = 200
-DELAY_BETWEEN_CHUNKS = 20.0   # increased from 13s — handles longer model responses safely
+CHUNK_SIZE           = 2500   # smaller chunks = fewer tokens per request
+OVERLAP              = 150
+DELAY_BETWEEN_CHUNKS = 25.0   # 25s gap — well under 6k tokens/min limit
 
-# !! Must match your Supabase ai_tools table categories EXACTLY !!
 VALID_CATEGORIES = [
     "AI Assistants",
     "Image Generation",
@@ -52,19 +42,19 @@ Each object must have exactly these keys:
 - "name": tool name (string)
 - "description": 1-2 sentences about what the tool does (string)
 - "category": MUST be exactly one of: {json.dumps(VALID_CATEGORIES)}
-- "website": tool URL (string, use empty string "" if not found)
+- "website": tool URL (string, use empty string if not found)
 
 Rules:
-- Skip navigation links, section headings, table of contents, "back to top" links
+- Skip navigation links, section headings, table of contents entries
 - Skip anything that is not a real usable software tool
 - Write a short description if one is missing
-- Never include the same tool name twice
+- Never duplicate the same tool name
 - Return [] if no tools found
 """
 
 
 def _make_client(api_key: str) -> Groq:
-    if not api_key or api_key.strip() == "your_groq_api_key_here":
+    if not api_key or api_key.strip() in ("", "your_groq_api_key_here"):
         raise ValueError(
             "\nGroq API key missing.\n"
             "Get a free key at https://console.groq.com\n"
@@ -74,7 +64,7 @@ def _make_client(api_key: str) -> Groq:
 
 
 def _call_groq(client: Groq, text_chunk: str, source: str, retry: int = 0) -> list:
-    """Send one chunk to Groq. Returns tool list. Never raises."""
+    """Send one chunk. Returns tool list. Never raises."""
     try:
         resp = client.chat.completions.create(
             model="llama-3.3-70b-versatile",
@@ -83,7 +73,7 @@ def _call_groq(client: Groq, text_chunk: str, source: str, retry: int = 0) -> li
                 {"role": "user",   "content": f"Extract AI tools (source: {source}):\n\n{text_chunk}"},
             ],
             temperature=0.1,
-            max_tokens=2048,
+            max_tokens=1500,   # capped output tokens to reduce token usage
         )
 
         raw = resp.choices[0].message.content.strip()
@@ -124,23 +114,20 @@ def _call_groq(client: Groq, text_chunk: str, source: str, retry: int = 0) -> li
         err = str(e).lower()
         if "rate" in err or "429" in err:
             if retry >= 3:
-                print(f"    [Rate limit] Max retries — skipping chunk from {source}")
+                print(f"    [Rate limit] Max retries — skipping chunk")
                 return []
-            wait = 15 * (2 ** retry)   # 15s → 30s → 60s
+            wait = 30 * (2 ** retry)   # 30s → 60s → 120s
             print(f"    [Rate limit] Waiting {wait}s (retry {retry + 1}/3)...")
             time.sleep(wait)
             return _call_groq(client, text_chunk, source, retry=retry + 1)
-
         print(f"    [Groq warn] {source}: {e}")
         return []
 
 
 def extract_tools_with_ai(text: str, source_hint: str = "unknown", api_key: str = None) -> list:
     """
-    Extract AI tools from any page text or markdown using Groq AI.
-    Processes the full page — no truncation.
-    Paces at 20s between chunks to stay within free tier limits.
-    Each worker passes its own api_key so rate limits are independent.
+    Extract AI tools from page text using Groq AI.
+    Processes full page with 25s delay between chunks.
     """
     if not text or len(text.strip()) < 50:
         return []
@@ -156,7 +143,7 @@ def extract_tools_with_ai(text: str, source_hint: str = "unknown", api_key: str 
 
     est_minutes = round((len(chunks) * DELAY_BETWEEN_CHUNKS) / 60, 1)
     print(f"    Source:  {source_hint}")
-    print(f"    Size:    {len(text):,} chars → {len(chunks)} chunks → ~{est_minutes} min estimated")
+    print(f"    Size:    {len(text):,} chars → {len(chunks)} chunks → ~{est_minutes} min")
 
     all_tools  = []
     seen_names = set()
@@ -169,7 +156,7 @@ def extract_tools_with_ai(text: str, source_hint: str = "unknown", api_key: str 
                 seen_names.add(key_name)
                 all_tools.append(tool)
 
-        if len(chunks) > 10:
+        if len(chunks) > 5:
             print(f"    chunk {i + 1}/{len(chunks)} — {len(all_tools)} tools so far")
 
         if i < len(chunks) - 1:
@@ -180,7 +167,7 @@ def extract_tools_with_ai(text: str, source_hint: str = "unknown", api_key: str 
 
 
 def fetch_markdown_via_jina(url: str) -> str:
-    """Convert any URL to clean markdown via Jina Reader. Free, no key needed."""
+    """Convert URL to markdown via Jina Reader. Free, no key needed."""
     jina_url = f"https://r.jina.ai/{url}"
     try:
         req = urllib.request.Request(
@@ -192,5 +179,5 @@ def fetch_markdown_via_jina(url: str) -> str:
         print(f"    Jina fetched: {url} → {len(content):,} chars")
         return content
     except Exception as e:
-        print(f"    [Jina warn] Could not fetch {url}: {e}")
+        print(f"    [Jina warn] {url}: {e}")
         return ""
