@@ -248,17 +248,20 @@ const aiToolsData = {
     }
   ],
   "categories": [
-    {"name": "AI Assistant", "icon": "🤖", "color": "#00ffff", "count": 3},
-    {"name": "Image Generation", "icon": "🎨", "color": "#f472b6", "count": 3},
-    {"name": "Video Generation", "icon": "🎬", "color": "#8b5cf6", "count": 2},
-    {"name": "Development", "icon": "💻", "color": "#10b981", "count": 1},
-    {"name": "Content Writing", "icon": "✍️", "color": "#f59e0b", "count": 2},
-    {"name": "Research", "icon": "🔍", "color": "#3b82f6", "count": 1},
-    {"name": "Design", "icon": "🎯", "color": "#ef4444", "count": 1},
-    {"name": "Voice Generation", "icon": "🎙️", "color": "#06b6d4", "count": 1},
-    {"name": "Productivity", "icon": "📝", "color": "#84cc16", "count": 1},
-    {"name": "Translation", "icon": "🌐", "color": "#6366f1", "count": 1},
-    {"name": "Writing Assistant", "icon": "📚", "color": "#ec4899", "count": 1}
+    {"name": "Development & Code", "icon": "💻", "color": "#10b981", "count": 76},
+    {"name": "Image Generation",   "icon": "🎨", "color": "#f472b6", "count": 53},
+    {"name": "Audio & Voice",       "icon": "🎙️", "color": "#06b6d4", "count": 39},
+    {"name": "Productivity",        "icon": "📝", "color": "#84cc16", "count": 36},
+    {"name": "AI Assistants",       "icon": "🤖", "color": "#00ffff", "count": 25},
+    {"name": "Writing & Content",   "icon": "✍️", "color": "#ec4899", "count": 25},
+    {"name": "Marketing & Social",  "icon": "📣", "color": "#f59e0b", "count": 23},
+    {"name": "Learning & Resources","icon": "📚", "color": "#8b5cf6", "count": 19},
+    {"name": "Research",            "icon": "🔍", "color": "#3b82f6", "count": 17},
+    {"name": "Video Generation",    "icon": "🎬", "color": "#a855f7", "count": 12},
+    {"name": "Customer Support & Chat","icon": "💬", "color": "#14b8a6", "count": 9},
+    {"name": "Document & PDF",      "icon": "📄", "color": "#f97316", "count": 9},
+    {"name": "Career & HR",         "icon": "💼", "color": "#ef4444", "count": 8},
+    {"name": "Design & Creativity", "icon": "🎯", "color": "#e879f9", "count": 2}
   ]
 };
 
@@ -561,28 +564,20 @@ function renderCategoryFilters() {
       data.forEach(({ category }) => { catMap[category] = (catMap[category] || 0) + 1; });
 
       const categoryMeta = {
-        "Contents":{"icon":"📋","color":"#00ffff"},
-        "Image":{"icon":"🎨","color":"#f472b6"},
-        "Audio":{"icon":"🎙️","color":"#06b6d4"},
-        "Other":{"icon":"🔧","color":"#6b7280"},
-        "Code":{"icon":"💻","color":"#10b981"},
-        "Related Awesome Lists":{"icon":"📚","color":"#f59e0b"},
-        "Video":{"icon":"🎬","color":"#8b5cf6"},
-        "Learn AI free":{"icon":"🎓","color":"#84cc16"},
-        "Learning resources":{"icon":"📖","color":"#3b82f6"},
-        "AI Assistant":{"icon":"🤖","color":"#00ffff"},
-        "Image Generation":{"icon":"🖼️","color":"#f472b6"},
-        "Video Generation":{"icon":"🎬","color":"#8b5cf6"},
-        "Development":{"icon":"💻","color":"#10b981"},
-        "Content Writing":{"icon":"✍️","color":"#f59e0b"},
-        "Research":{"icon":"🔍","color":"#3b82f6"},
-        "Design":{"icon":"🎯","color":"#ef4444"},
-        "Voice Generation":{"icon":"🎙️","color":"#06b6d4"},
-        "Productivity":{"icon":"📝","color":"#84cc16"},
-        "Translation":{"icon":"🌐","color":"#6366f1"},
-        "Writing Assistant":{"icon":"📚","color":"#ec4899"},
-        "Writing":{"icon":"✍️","color":"#ec4899"},
-        "NVIDIA Platform Extensions":{"icon":"⚡","color":"#76b900"}
+        "Development & Code":       {"icon":"💻","color":"#10b981"},
+        "Image Generation":         {"icon":"🎨","color":"#f472b6"},
+        "Audio & Voice":            {"icon":"🎙️","color":"#06b6d4"},
+        "Productivity":             {"icon":"📝","color":"#84cc16"},
+        "AI Assistants":            {"icon":"🤖","color":"#00ffff"},
+        "Writing & Content":        {"icon":"✍️","color":"#ec4899"},
+        "Marketing & Social":       {"icon":"📣","color":"#f59e0b"},
+        "Learning & Resources":     {"icon":"📚","color":"#8b5cf6"},
+        "Research":                 {"icon":"🔍","color":"#3b82f6"},
+        "Video Generation":         {"icon":"🎬","color":"#a855f7"},
+        "Customer Support & Chat":  {"icon":"💬","color":"#14b8a6"},
+        "Document & PDF":           {"icon":"📄","color":"#f97316"},
+        "Career & HR":              {"icon":"💼","color":"#ef4444"},
+        "Design & Creativity":      {"icon":"🎯","color":"#e879f9"}
       };
 
       const liveCategories = Object.entries(catMap)
@@ -1032,12 +1027,28 @@ function showSuccessMessage() {
   setTimeout(() => successMessage.classList.add('hidden'), 3000);
 }
 
+// ---------------------- Search loading state ----------------------
+function showSearchLoading(query) {
+  const container = document.getElementById('tools-grid-container');
+  const noResults = document.getElementById('no-results');
+  if (noResults) noResults.classList.add('hidden');
+  if (container) {
+    container.innerHTML = `
+      <div style="grid-column:1/-1;text-align:center;padding:64px 32px;color:rgba(255,255,255,0.7);">
+        <div style="font-size:48px;margin-bottom:16px;animation:spin 1s linear infinite;display:inline-block;">⚙️</div>
+        <h3 style="color:#00ffff;margin-bottom:8px;">Searching for "${query}"</h3>
+        <p style="color:rgba(255,255,255,0.5);font-size:14px;">Running semantic AI search across ${aiToolsData.aiTools.length}+ tools...</p>
+      </div>`;
+  }
+  scrollToSection('tools-grid');
+}
+
 // ---------------------- Search, filters, sort ----------------------
 async function handleSearch(event) {
   const searchTerm = event.target.value.toLowerCase().trim();
   activeFilters.search = searchTerm;
 
-  // UI glow (unchanged)
+  // UI glow
   const searchContainer =
     event.target.closest('.search-container') ||
     event.target.closest('.hero-search-container');
@@ -1050,35 +1061,30 @@ async function handleSearch(event) {
   // 🔁 EMPTY SEARCH → RESTORE LOCAL
   if (!searchTerm) {
     isSemanticMode = false;
-
     if (aiToolsData._localBackup) {
       aiToolsData.aiTools = aiToolsData._localBackup;
       delete aiToolsData._localBackup;
     }
-
-    // clear any previous remote results when search is cleared
     if (aiToolsData._remoteResults) delete aiToolsData._remoteResults;
-
     filteredTools = [...aiToolsData.aiTools];
     renderToolsGrid();
     return;
   }
+
+  // Show loading spinner immediately so user knows it's working
+  showSearchLoading(searchTerm);
 
   // 🔥 SEMANTIC SEARCH
   const remote = await fetchRecommendationsFromBackend(searchTerm, 12);
 
   if (remote.length > 0) {
     isSemanticMode = true;
-
     if (!aiToolsData._localBackup) {
       aiToolsData._localBackup = [...aiToolsData.aiTools];
     }
-
-    // store the latest remote results so filters / view toggles keep them
     aiToolsData._remoteResults = remote;
     filteredTools = [...remote];
     renderToolsGrid();
-    scrollToSection('tools-grid');
     return;
   }
 
