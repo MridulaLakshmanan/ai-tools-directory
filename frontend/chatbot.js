@@ -1,28 +1,32 @@
 /**
- * frontend/chatbot.js  —  RAG Edition
- * -------------------------------------
- * NEW FILE — place at: frontend/chatbot.js
- * Add one line before </body> in index.html:
- *   <script src="chatbot.js"></script>
+ * frontend/chatbot.js  —  RAG Edition (Secure)
+ * ----------------------------------------------
+ * REPLACE your existing frontend/chatbot.js
  *
- * HOW IT WORKS (RAG — Retrieval Augmented Generation):
- *   1. User types a query
- *   2. We fetch matching tools from YOUR Supabase database
- *   3. Those real tools are injected into the LLM prompt
- *   4. LLM picks the best 3 FROM YOUR ACTUAL DATA
- *   5. Every suggestion is guaranteed to exist in your directory
+ * Security fix: Groq API key removed from frontend entirely.
+ * All LLM calls go through a Supabase Edge Function proxy.
+ * The key lives server-side as a Supabase secret — never visible in browser.
  *
- * SETUP:
- *   Replace GROQ_API_KEY below with your key from console.groq.com (free)
+ * HOW IT WORKS:
+ *   Browser → Supabase Edge Function (key lives here) → Groq API
+ *
+ * Only the Supabase anon key remains here — that's intentional and safe.
+ * It's designed to be public and has no write permissions to your data.
+ *
+ * SETUP (one time):
+ *   1. Go to Supabase Dashboard → Edge Functions → ai-advisor → Secrets
+ *   2. Add secret:  GROQ_API_KEY = your_groq_key_here
+ *   That's it — no keys in any frontend file.
  */
 
 (function () {
 
-  // ── Config ─────────────────────────────────────────────────────────────────
-  const GROQ_API_KEY  = ""; // 🔑 replace this
-  const GROQ_MODEL    = "llama-3.3-70b-versatile";
+  // ── Config — safe to commit, no secrets here ───────────────────────────────
   const SUPABASE_URL  = "https://pjxrjytcurqrmbuhgyoi.supabase.co";
   const SUPABASE_KEY  = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBqeHJqeXRjdXJxcm1idWhneW9pIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjExMjYxNTcsImV4cCI6MjA3NjcwMjE1N30.H5xP2ZlKFl_-h41I_ZjCcGmt0NLK64eOwO8Ipr2sfZQ";
+
+  // Edge Function URL — Groq key lives here as a server-side secret
+  const EDGE_FN_URL   = `${SUPABASE_URL}/functions/v1/ai-advisor`;
 
   const CATEGORIES = [
     "AI Assistants","Image Generation","Video Generation","Development & Code",
@@ -60,7 +64,6 @@
       display:flex; align-items:center; justify-content:center;
       border:2px solid #0a0a0a;
     }
-
     #ainai-win{
       position:fixed; bottom:100px; right:28px;
       width:400px; max-width:calc(100vw - 36px);
@@ -73,7 +76,6 @@
       transition:all .3s cubic-bezier(0.34,1.56,0.64,1);
     }
     #ainai-win.open{transform:scale(1) translateY(0);opacity:1;pointer-events:all}
-
     .ainai-hdr{
       padding:14px 18px;
       background:linear-gradient(90deg,rgba(0,255,255,0.07),rgba(139,92,246,0.07));
@@ -94,7 +96,6 @@
     .ainai-x{background:none;border:none;color:rgba(255,255,255,0.4);
       cursor:pointer;font-size:16px;padding:4px 6px;border-radius:6px;transition:all .2s}
     .ainai-x:hover{color:#fff;background:rgba(255,255,255,0.08)}
-
     .ainai-msgs{
       flex:1; overflow-y:auto; padding:14px;
       display:flex; flex-direction:column; gap:10px;
@@ -102,7 +103,6 @@
     }
     .ainai-msgs::-webkit-scrollbar{width:3px}
     .ainai-msgs::-webkit-scrollbar-thumb{background:rgba(0,255,255,0.15);border-radius:3px}
-
     .ainai-msg{display:flex;gap:8px;align-items:flex-start;animation:ainai-pop .25s ease-out}
     .ainai-msg.u{flex-direction:row-reverse}
     @keyframes ainai-pop{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
@@ -118,14 +118,7 @@
     }
     .ainai-msg.b .ainai-bub{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.07);border-bottom-left-radius:4px}
     .ainai-msg.u .ainai-bub{background:linear-gradient(135deg,rgba(0,255,255,0.1),rgba(139,92,246,0.1));border:1px solid rgba(0,255,255,0.18);border-bottom-right-radius:4px}
-
-    /* ── RAG source label ── */
-    .ainai-rag-tag{
-      display:inline-flex;align-items:center;gap:4px;
-      font-size:10px;color:rgba(0,255,255,0.45);margin-bottom:6px;
-    }
-
-    /* ── Category badge ── */
+    .ainai-rag-tag{display:inline-flex;align-items:center;gap:4px;font-size:10px;color:rgba(0,255,255,0.45);margin-bottom:6px}
     .ainai-cat{
       display:inline-flex;align-items:center;gap:5px;
       background:rgba(139,92,246,0.12);border:1px solid rgba(139,92,246,0.28);
@@ -133,8 +126,6 @@
       cursor:pointer;margin:6px 0 4px;transition:all .2s;
     }
     .ainai-cat:hover{background:rgba(139,92,246,0.25);transform:translateY(-1px)}
-
-    /* ── Tool cards ── */
     .ainai-card{
       background:rgba(255,255,255,0.04);border:1px solid rgba(0,255,255,0.12);
       border-radius:10px;padding:10px 12px;margin-top:6px;
@@ -143,14 +134,8 @@
     .ainai-card:hover{background:rgba(0,255,255,0.08);border-color:rgba(0,255,255,0.3);transform:translateX(3px)}
     .ainai-card-name{font-weight:600;color:#00ffff;font-size:13px;margin-bottom:3px;display:flex;align-items:center;gap:6px}
     .ainai-card-why{font-size:12px;color:rgba(255,255,255,0.58);line-height:1.4}
-    .ainai-card-cat{
-      display:inline-block;margin-top:5px;padding:2px 8px;border-radius:10px;
-      font-size:10px;font-weight:600;background:rgba(0,255,255,0.08);
-      color:rgba(0,255,255,0.7);border:1px solid rgba(0,255,255,0.15);
-    }
+    .ainai-card-cat{display:inline-block;margin-top:5px;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;background:rgba(0,255,255,0.08);color:rgba(0,255,255,0.7);border:1px solid rgba(0,255,255,0.15)}
     .ainai-card-url{font-size:10px;color:#8b5cf6;margin-top:3px;display:inline-block}
-
-    /* ── Search trigger ── */
     .ainai-go{
       display:flex;align-items:center;justify-content:center;gap:6px;
       width:100%;margin-top:8px;padding:7px;
@@ -159,64 +144,25 @@
       color:#00ffff;font-size:12px;cursor:pointer;transition:all .2s;
     }
     .ainai-go:hover{background:linear-gradient(90deg,rgba(0,255,255,0.14),rgba(139,92,246,0.14))}
-
-    .ainai-fq{font-size:11px;color:rgba(0,255,255,0.45);margin-top:7px;font-style:italic;
-      padding-top:7px;border-top:1px solid rgba(255,255,255,0.05)}
-
-    /* ── Typing ── */
-    .ainai-typing{
-      display:flex;gap:4px;padding:10px 13px;
-      background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.07);
-      border-radius:14px;border-bottom-left-radius:4px;width:fit-content;
-    }
+    .ainai-fq{font-size:11px;color:rgba(0,255,255,0.45);margin-top:7px;font-style:italic;padding-top:7px;border-top:1px solid rgba(255,255,255,0.05)}
+    .ainai-typing{display:flex;gap:4px;padding:10px 13px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.07);border-radius:14px;border-bottom-left-radius:4px;width:fit-content}
     .ainai-td{width:5px;height:5px;background:rgba(0,255,255,0.5);border-radius:50%;animation:ainai-tda 1.2s ease-in-out infinite}
     .ainai-td:nth-child(2){animation-delay:.2s}.ainai-td:nth-child(3){animation-delay:.4s}
     @keyframes ainai-tda{0%,100%{transform:translateY(0);opacity:.3}50%{transform:translateY(-5px);opacity:1}}
-
-    /* ── Quick prompts ── */
     .ainai-qwrap{display:flex;flex-wrap:wrap;gap:6px;padding:0 14px 10px;flex-shrink:0}
-    .ainai-qbtn{
-      background:rgba(0,255,255,0.05);border:1px solid rgba(0,255,255,0.18);
-      border-radius:20px;padding:5px 11px;font-size:11px;
-      color:rgba(255,255,255,0.65);cursor:pointer;white-space:nowrap;transition:all .2s;
-    }
+    .ainai-qbtn{background:rgba(0,255,255,0.05);border:1px solid rgba(0,255,255,0.18);border-radius:20px;padding:5px 11px;font-size:11px;color:rgba(255,255,255,0.65);cursor:pointer;white-space:nowrap;transition:all .2s}
     .ainai-qbtn:hover{background:rgba(0,255,255,0.12);color:#fff}
-
-    /* ── Input ── */
-    .ainai-inp-area{
-      padding:10px 14px;border-top:1px solid rgba(255,255,255,0.06);
-      display:flex;gap:8px;align-items:flex-end;flex-shrink:0;
-    }
-    .ainai-inp{
-      flex:1;background:rgba(255,255,255,0.05);
-      border:1px solid rgba(0,255,255,0.18);border-radius:12px;
-      padding:9px 13px;color:#fff;font-size:13px;resize:none;outline:none;
-      max-height:90px;min-height:40px;font-family:inherit;line-height:1.4;
-      transition:border-color .2s;
-    }
+    .ainai-inp-area{padding:10px 14px;border-top:1px solid rgba(255,255,255,0.06);display:flex;gap:8px;align-items:flex-end;flex-shrink:0}
+    .ainai-inp{flex:1;background:rgba(255,255,255,0.05);border:1px solid rgba(0,255,255,0.18);border-radius:12px;padding:9px 13px;color:#fff;font-size:13px;resize:none;outline:none;max-height:90px;min-height:40px;font-family:inherit;line-height:1.4;transition:border-color .2s}
     .ainai-inp::placeholder{color:rgba(255,255,255,0.28)}
     .ainai-inp:focus{border-color:rgba(0,255,255,0.45)}
-    .ainai-send{
-      width:38px;height:38px;border-radius:10px;flex-shrink:0;
-      background:linear-gradient(135deg,#00ffff,#8b5cf6);
-      border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;
-      font-size:15px;transition:all .2s;
-    }
+    .ainai-send{width:38px;height:38px;border-radius:10px;flex-shrink:0;background:linear-gradient(135deg,#00ffff,#8b5cf6);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:15px;transition:all .2s}
     .ainai-send:hover{transform:scale(1.08)}
     .ainai-send:disabled{opacity:.35;cursor:not-allowed;transform:none}
-
-    /* ── Fetching indicator ── */
-    .ainai-fetching{
-      font-size:11px;color:rgba(0,255,255,0.5);display:flex;
-      align-items:center;gap:6px;padding:8px 13px;
-    }
+    .ainai-fetching{font-size:11px;color:rgba(0,255,255,0.5);display:flex;align-items:center;gap:6px;padding:8px 13px}
     .ainai-spin{animation:ainai-rotate 1s linear infinite;display:inline-block}
     @keyframes ainai-rotate{to{transform:rotate(360deg)}}
-
-    @media(max-width:480px){
-      #ainai-win{right:10px;bottom:86px;width:calc(100vw - 20px)}
-      #ainai-chat-btn{right:14px;bottom:16px}
-    }
+    @media(max-width:480px){#ainai-win{right:10px;bottom:86px;width:calc(100vw - 20px)}#ainai-chat-btn{right:14px;bottom:16px}}
   `;
   const styleEl = document.createElement("style");
   styleEl.textContent = css;
@@ -224,11 +170,10 @@
 
   // ── HTML ────────────────────────────────────────────────────────────────────
   document.body.insertAdjacentHTML("beforeend", `
-    <button id="ainai-chat-btn" onclick="ainaiToggle()" title="AI Tool Advisor — picks from your actual directory">
+    <button id="ainai-chat-btn" onclick="ainaiToggle()" title="AI Tool Advisor">
       <span id="ainai-icon">🤖</span>
       <span class="ainai-badge" id="ainai-badge">AI</span>
     </button>
-
     <div id="ainai-win">
       <div class="ainai-hdr">
         <div class="ainai-hdr-av">🤖</div>
@@ -238,9 +183,7 @@
         </div>
         <button class="ainai-x" onclick="ainaiToggle()">✕</button>
       </div>
-
       <div class="ainai-msgs" id="ainai-msgs"></div>
-
       <div class="ainai-qwrap" id="ainai-qwrap">
         <button class="ainai-qbtn" onclick="ainaiQuick(this)">Edit videos with AI</button>
         <button class="ainai-qbtn" onclick="ainaiQuick(this)">Write better content</button>
@@ -251,7 +194,6 @@
         <button class="ainai-qbtn" onclick="ainaiQuick(this)">Code faster</button>
         <button class="ainai-qbtn" onclick="ainaiQuick(this)">Grow on social media</button>
       </div>
-
       <div class="ainai-inp-area">
         <textarea id="ainai-inp" class="ainai-inp" rows="1"
           placeholder="What do you want to build or do?"
@@ -273,23 +215,17 @@
   window.ainaiToggle = function () {
     isOpen = !isOpen;
     document.getElementById("ainai-win").classList.toggle("open", isOpen);
-    document.getElementById("ainai-icon").textContent  = isOpen ? "✕" : "🤖";
+    document.getElementById("ainai-icon").textContent    = isOpen ? "✕" : "🤖";
     document.getElementById("ainai-badge").style.display = isOpen ? "none" : "flex";
     if (isOpen) document.getElementById("ainai-inp").focus();
   };
-
-  window.ainaiQuick = function (btn) {
+  window.ainaiQuick  = function (btn) {
     document.getElementById("ainai-qwrap").style.display = "none";
     ainaiProcess(btn.textContent.trim());
   };
-  window.ainaiKey = function (e) {
-    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); ainaiSend(); }
-  };
-  window.ainaiResize = function (el) {
-    el.style.height = "auto";
-    el.style.height = Math.min(el.scrollHeight, 90) + "px";
-  };
-  window.ainaiSend = function () {
+  window.ainaiKey    = function (e) { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); ainaiSend(); } };
+  window.ainaiResize = function (el) { el.style.height = "auto"; el.style.height = Math.min(el.scrollHeight, 90) + "px"; };
+  window.ainaiSend   = function () {
     const inp  = document.getElementById("ainai-inp");
     const text = inp.value.trim();
     if (!text || isTyping) return;
@@ -298,49 +234,36 @@
     ainaiProcess(text);
   };
 
-  // ── Main RAG pipeline ───────────────────────────────────────────────────────
+  // ── RAG Pipeline ────────────────────────────────────────────────────────────
   async function ainaiProcess(query) {
     addUserMsg(query);
     msgHistory.push({ role: "user", content: query });
-
     isTyping = true;
     document.getElementById("ainai-send-btn").disabled = true;
 
-    // Step 1 — Show "searching your directory" state
-    const searchingId = addFetchingMsg("🔍 Searching your directory...");
-
+    // Step 1 — Fetch real tools from Supabase
+    const fetchId = addFetchingMsg("🔍 Searching your directory...");
     let dbTools = [];
     try {
-      // Step 2 — Fetch real matching tools from Supabase
       dbTools = await fetchToolsFromDB(query);
-      removeFetchingMsg(searchingId);
-
-      if (dbTools.length === 0) {
-        // Nothing found in DB — widen search
-        dbTools = await fetchToolsFromDB(query, true);
-      }
+      if (dbTools.length === 0) dbTools = await fetchToolsFromDB(query, true);
     } catch (e) {
-      removeFetchingMsg(searchingId);
       console.warn("DB fetch failed:", e);
     }
+    removeFetchingMsg(fetchId);
 
-    // Step 3 — Show typing while LLM thinks
+    // Step 2 — Send to Edge Function (Groq key stays server-side)
     const typingId = addTyping();
-
     try {
-      // Step 4 — Call LLM with real tools as context
-      const result = await callGroqWithRAG(query, dbTools);
+      const result   = await callEdgeFunction(query, dbTools);
       removeTyping(typingId);
-
-      // Step 5 — Merge LLM picks with real DB data for accurate links/IDs
       const enriched = enrichWithDBData(result, dbTools);
       addBotMsg(enriched, dbTools.length);
-
-      msgHistory.push({ role: "assistant", content: result.message });
+      msgHistory.push({ role: "assistant", content: result.message || "" });
     } catch (e) {
       removeTyping(typingId);
       addBotMsg({
-        message: "Sorry, I had trouble connecting to the AI. Please check your GROQ_API_KEY in chatbot.js.",
+        message: "Sorry, I had trouble connecting. Make sure GROQ_API_KEY is set in Supabase Dashboard → Edge Functions → ai-advisor → Secrets.",
         category: null, tools: [], follow_up: null
       });
     }
@@ -349,26 +272,11 @@
     document.getElementById("ainai-send-btn").disabled = false;
   }
 
-  // ── Step 2: Fetch tools from Supabase ───────────────────────────────────────
+  // ── Fetch tools from Supabase DB ────────────────────────────────────────────
   async function fetchToolsFromDB(query, broad = false) {
-    // Detect likely category from query keywords
     const cat = detectCategory(query);
-
-    let url;
-    if (broad) {
-      // Broad: get top 15 tools overall by category if detected
-      const catFilter = cat
-        ? `&category=eq.${encodeURIComponent(cat)}`
-        : "";
-      url = `${SUPABASE_URL}/rest/v1/ai_tools?select=id,name,description,category,website,url,rating,pricing&approved=eq.true${catFilter}&limit=15`;
-    } else {
-      // Use Supabase full-text search for precise matches
-      url = `${SUPABASE_URL}/rest/v1/rpc/search_tools`;
-    }
-
     if (!broad) {
-      // Call our search_tools RPC function
-      const res = await fetch(url, {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/search_tools`, {
         method: "POST",
         headers: {
           "Content-Type":  "application/json",
@@ -381,50 +289,48 @@
       const data = await res.json();
       return Array.isArray(data) ? data : [];
     } else {
-      const res = await fetch(url, {
-        headers: { "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}` }
-      });
+      const catFilter = cat ? `&category=eq.${encodeURIComponent(cat)}` : "";
+      const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/ai_tools?select=id,name,description,category,website,url,rating,pricing&approved=eq.true${catFilter}&limit=15`,
+        { headers: { "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}` } }
+      );
       if (!res.ok) throw new Error("Fetch failed");
       return await res.json();
     }
   }
 
-  // ── Simple category keyword detector ────────────────────────────────────────
+  // ── Detect category from query keywords ─────────────────────────────────────
   function detectCategory(query) {
-    const q = query.toLowerCase();
+    const q   = query.toLowerCase();
     const map = [
-      [["video","film","clip","youtube","reel","animation"],          "Video Generation"],
-      [["image","photo","picture","art","illustration","design","logo"],"Image Generation"],
+      [["video","film","clip","youtube","reel","animation"],           "Video Generation"],
+      [["image","photo","picture","art","illustration","logo"],        "Image Generation"],
       [["code","coding","programming","developer","software","debug"], "Development & Code"],
       [["write","writing","blog","copy","content","email","article"],  "Writing & Content"],
       [["voice","speech","audio","podcast","music","sound"],           "Audio & Voice"],
       [["chat","chatbot","customer","support","assistant","bot"],      "Customer Support & Chat"],
-      [["research","paper","study","academic","scholar","summarize"],  "Research"],
-      [["productivity","task","workflow","automate","notion","plan"],  "Productivity"],
+      [["research","paper","study","academic","summarize"],            "Research"],
+      [["productivity","task","workflow","automate","notion"],         "Productivity"],
       [["marketing","social","instagram","twitter","linkedin","seo"],  "Marketing & Social"],
-      [["learn","course","education","tutorial","study"],              "Learning & Resources"],
+      [["learn","course","education","tutorial"],                      "Learning & Resources"],
       [["pdf","document","doc","excel","spreadsheet","resume"],        "Document & PDF"],
-      [["hire","job","career","resume","interview","hr","recruit"],    "Career & HR"],
-      [["design","ui","ux","figma","creative","graphic"],             "Design & Creativity"],
-      [["ai","llm","gpt","model","assistant","claude","gemini"],      "AI Assistants"],
+      [["hire","job","career","interview","hr","recruit"],             "Career & HR"],
+      [["design","ui","ux","figma","creative","graphic"],              "Design & Creativity"],
+      [["ai","llm","gpt","model","claude","gemini"],                   "AI Assistants"],
     ];
-    for (const [keywords, cat] of map) {
-      if (keywords.some(k => q.includes(k))) return cat;
+    for (const [kws, cat] of map) {
+      if (kws.some(k => q.includes(k))) return cat;
     }
     return null;
   }
 
-  // ── Step 4: Call Groq with real tools injected as context ───────────────────
-  async function callGroqWithRAG(query, dbTools) {
-    // Format real tools for the prompt
+  // ── Call Edge Function (no Groq key in browser) ─────────────────────────────
+  async function callEdgeFunction(query, dbTools) {
     const toolContext = dbTools.length > 0
       ? dbTools.map((t, i) =>
-          `${i+1}. ${t.name} (${t.category || "Other"})
-   Description: ${(t.description || "").slice(0, 150)}
-   URL: ${t.website || t.url || "N/A"}
-   Rating: ${t.rating || "N/A"} | Pricing: ${t.pricing || "N/A"}`
+          `${i+1}. ${t.name} (${t.category || "Other"})\n   ${(t.description || "").slice(0, 150)}\n   URL: ${t.website || t.url || "N/A"} | Rating: ${t.rating || "N/A"} | Pricing: ${t.pricing || "N/A"}`
         ).join("\n\n")
-      : "No specific tools found — suggest general well-known tools.";
+      : "No specific matches found — suggest the most relevant general AI tools.";
 
     const systemPrompt = `You are an AI tool advisor for "All I Need AI" — a directory of 700+ AI tools.
 
@@ -433,24 +339,19 @@ The user asked: "${query}"
 Here are REAL tools from our database that match their query:
 ${toolContext}
 
-Your job:
-1. Pick the TOP 3 tools from the list above that best match what the user wants to do
-2. Write a brief, enthusiastic response explaining what they should use
-3. For each tool give a clear 1-sentence reason WHY it fits their specific need
-
-Respond in this EXACT JSON format (pure JSON, no markdown):
+Pick the TOP 3 tools from the list that best fit what the user wants to do.
+Respond in this EXACT JSON format (pure JSON only, no markdown):
 {
-  "message": "2-3 sentence conversational response about their use case",
-  "category": "the most relevant category from: ${CATEGORIES.join(", ")}",
+  "message": "2-3 sentence enthusiastic response about their use case",
+  "category": "one of: ${CATEGORIES.join(", ")}",
   "tools": [
-    { "name": "exact tool name from the list", "reason": "why this fits in 10-15 words" },
-    { "name": "exact tool name from the list", "reason": "why this fits in 10-15 words" },
-    { "name": "exact tool name from the list", "reason": "why this fits in 10-15 words" }
+    { "name": "exact name from list", "reason": "why it fits in 10-15 words" },
+    { "name": "exact name from list", "reason": "why it fits in 10-15 words" },
+    { "name": "exact name from list", "reason": "why it fits in 10-15 words" }
   ],
-  "follow_up": "one short question to refine your recommendations"
+  "follow_up": "one short question to refine recommendations"
 }
-
-IMPORTANT: Only name tools that appear in the list above. Use the exact names as written.`;
+IMPORTANT: Only use tool names that appear in the list above.`;
 
     const messages = [
       { role: "system", content: systemPrompt },
@@ -458,13 +359,14 @@ IMPORTANT: Only name tools that appear in the list above. Use the exact names as
       { role: "user", content: query }
     ];
 
-    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    // ✅ Call goes to Edge Function — Groq key never in browser
+    const res = await fetch(EDGE_FN_URL, {
       method: "POST",
       headers: {
         "Content-Type":  "application/json",
-        "Authorization": `Bearer ${GROQ_API_KEY}`
+        "Authorization": `Bearer ${SUPABASE_KEY}`,
       },
-      body: JSON.stringify({ model: GROQ_MODEL, messages, temperature: 0.5, max_tokens: 700 })
+      body: JSON.stringify({ messages, temperature: 0.5, max_tokens: 700 })
     });
 
     if (!res.ok) throw new Error(await res.text());
@@ -478,109 +380,61 @@ IMPORTANT: Only name tools that appear in the list above. Use the exact names as
     catch { return { message: raw, category: null, tools: [], follow_up: null }; }
   }
 
-  // ── Step 5: Enrich LLM picks with real DB data ──────────────────────────────
+  // ── Enrich LLM picks with real DB data ──────────────────────────────────────
   function enrichWithDBData(llmResult, dbTools) {
     if (!llmResult.tools || !dbTools.length) return llmResult;
-
     const enriched = llmResult.tools.map(pick => {
-      // Find the matching real tool from DB (case-insensitive)
       const match = dbTools.find(t =>
         t.name?.toLowerCase().trim() === pick.name?.toLowerCase().trim() ||
         t.name?.toLowerCase().includes(pick.name?.toLowerCase()) ||
         pick.name?.toLowerCase().includes(t.name?.toLowerCase())
       );
-      if (match) {
-        return {
-          ...pick,
-          id:       match.id,
-          name:     match.name,       // use exact DB name
-          website:  match.website || match.url || "",
-          category: match.category || pick.category || "",
-          rating:   match.rating,
-          pricing:  match.pricing,
-        };
-      }
-      return pick; // LLM pick not found in DB — keep as-is
+      return match ? {
+        ...pick,
+        id:       match.id,
+        name:     match.name,
+        website:  match.website || match.url || "",
+        category: match.category || "",
+        rating:   match.rating,
+        pricing:  match.pricing,
+      } : pick;
     });
-
     return { ...llmResult, tools: enriched };
   }
 
-  // ── Render user message ──────────────────────────────────────────────────────
+  // ── Render functions ─────────────────────────────────────────────────────────
   function addUserMsg(text) {
-    append(`<div class="ainai-msg u">
-      <div class="ainai-av">👤</div>
-      <div class="ainai-bub">${esc(text)}</div>
-    </div>`);
+    append(`<div class="ainai-msg u"><div class="ainai-av">👤</div><div class="ainai-bub">${esc(text)}</div></div>`);
   }
 
-  // ── Render bot message with real tool cards ──────────────────────────────────
   function addBotMsg(d, dbCount) {
-    const ragTag = dbCount > 0
-      ? `<div class="ainai-rag-tag">⚡ Searched ${dbCount} real tools from your directory</div>`
-      : "";
-
-    const catHtml = d.category
-      ? `<div class="ainai-cat" onclick="ainaiCat('${esc(d.category)}')">📂 Browse ${esc(d.category)} →</div>`
-      : "";
-
-    const toolsHtml = (d.tools || []).map(t => `
+    const ragTag   = dbCount > 0 ? `<div class="ainai-rag-tag">⚡ Searched ${dbCount} real tools from your directory</div>` : "";
+    const catHtml  = d.category  ? `<div class="ainai-cat" onclick="ainaiCat('${esc(d.category)}')">📂 Browse ${esc(d.category)} →</div>` : "";
+    const toolsHtml = (d.tools||[]).map(t => `
       <div class="ainai-card" onclick="ainaiOpen('${esc(t.id||"")}','${esc(t.name||"")}','${esc(t.website||"")}')">
-        <div class="ainai-card-name">
-          🔧 ${esc(t.name)}
-          ${t.rating ? `<span style="font-size:10px;color:rgba(255,255,255,0.4);font-weight:400">⭐ ${t.rating}</span>` : ""}
-        </div>
+        <div class="ainai-card-name">🔧 ${esc(t.name)}${t.rating?` <span style="font-size:10px;color:rgba(255,255,255,0.4);font-weight:400">⭐${t.rating}</span>`:""}</div>
         <div class="ainai-card-why">${esc(t.reason)}</div>
         <div style="display:flex;align-items:center;gap:8px;margin-top:4px;flex-wrap:wrap">
-          ${t.category ? `<span class="ainai-card-cat">${esc(t.category)}</span>` : ""}
-          ${t.pricing  ? `<span style="font-size:10px;color:rgba(255,255,255,0.35)">${esc(t.pricing)}</span>` : ""}
-          ${t.website  ? `<span class="ainai-card-url">↗ Visit</span>` : ""}
+          ${t.category?`<span class="ainai-card-cat">${esc(t.category)}</span>`:""}
+          ${t.pricing ?`<span style="font-size:10px;color:rgba(255,255,255,0.35)">${esc(t.pricing)}</span>`:""}
+          ${t.website ?`<span class="ainai-card-url">↗ Visit</span>`:""}
         </div>
       </div>`).join("");
-
-    const goHtml = d.tools?.length
-      ? `<button class="ainai-go" onclick="ainaiSearch('${esc(d.tools[0]?.name||d.category||"")}')">
-           🔍 View all matching tools in directory
-         </button>`
-      : "";
-
-    const fqHtml = d.follow_up
-      ? `<div class="ainai-fq">💬 ${esc(d.follow_up)}</div>`
-      : "";
-
-    append(`<div class="ainai-msg b">
-      <div class="ainai-av">🤖</div>
-      <div class="ainai-bub">
-        ${ragTag}
-        <div>${esc(d.message)}</div>
-        ${catHtml}
-        ${toolsHtml}
-        ${goHtml}
-        ${fqHtml}
-      </div>
-    </div>`);
+    const goHtml  = d.tools?.length ? `<button class="ainai-go" onclick="ainaiSearch('${esc(d.tools[0]?.name||d.category||"")}')">🔍 View all matching tools in directory</button>` : "";
+    const fqHtml  = d.follow_up     ? `<div class="ainai-fq">💬 ${esc(d.follow_up)}</div>` : "";
+    append(`<div class="ainai-msg b"><div class="ainai-av">🤖</div><div class="ainai-bub">${ragTag}<div>${esc(d.message)}</div>${catHtml}${toolsHtml}${goHtml}${fqHtml}</div></div>`);
   }
 
-  // ── Fetching indicator ───────────────────────────────────────────────────────
   function addFetchingMsg(text) {
     const id = "ainai-f-" + Date.now();
-    append(`<div class="ainai-msg b" id="${id}">
-      <div class="ainai-av">🤖</div>
-      <div class="ainai-fetching"><span class="ainai-spin">⟳</span> ${esc(text)}</div>
-    </div>`);
+    append(`<div class="ainai-msg b" id="${id}"><div class="ainai-av">🤖</div><div class="ainai-fetching"><span class="ainai-spin">⟳</span> ${esc(text)}</div></div>`);
     return id;
   }
   function removeFetchingMsg(id) { document.getElementById(id)?.remove(); }
 
-  // ── Typing indicator ─────────────────────────────────────────────────────────
   function addTyping() {
     const id = "ainai-t-" + Date.now();
-    append(`<div class="ainai-msg b" id="${id}">
-      <div class="ainai-av">🤖</div>
-      <div class="ainai-typing">
-        <div class="ainai-td"></div><div class="ainai-td"></div><div class="ainai-td"></div>
-      </div>
-    </div>`);
+    append(`<div class="ainai-msg b" id="${id}"><div class="ainai-av">🤖</div><div class="ainai-typing"><div class="ainai-td"></div><div class="ainai-td"></div><div class="ainai-td"></div></div></div>`);
     return id;
   }
   function removeTyping(id) { document.getElementById(id)?.remove(); }
@@ -593,40 +447,23 @@ IMPORTANT: Only name tools that appear in the list above. Use the exact names as
 
   // ── Bridge to main app ───────────────────────────────────────────────────────
   window.ainaiOpen = function (id, name, url) {
-    // If tool has a real DB id, open the tool modal
-    if (id && typeof openToolModal === "function") {
-      openToolModal(id);
-      ainaiToggle();
-      return;
-    }
-    // Otherwise open website or search
-    if (url && url.startsWith("http")) {
-      window.open(url, "_blank");
-      return;
-    }
+    if (id && typeof openToolModal === "function") { openToolModal(id); ainaiToggle(); return; }
+    if (url && url.startsWith("http")) { window.open(url, "_blank"); return; }
     ainaiSearch(name);
   };
-
   window.ainaiCat = function (cat) {
     if (typeof handleCategoryFilter === "function") handleCategoryFilter(cat);
     ainaiToggle();
     setTimeout(() => document.getElementById("tools-grid")?.scrollIntoView({ behavior: "smooth" }), 300);
   };
-
   window.ainaiSearch = function (q) {
     const inp = document.getElementById("search-input");
-    if (inp && q) {
-      inp.value = q;
-      if (typeof handleSearch === "function") handleSearch({ target: inp });
-    }
+    if (inp && q) { inp.value = q; if (typeof handleSearch === "function") handleSearch({ target: inp }); }
     ainaiToggle();
   };
 
-  // ── Escape HTML ──────────────────────────────────────────────────────────────
   function esc(s) {
-    return String(s || "")
-      .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
-      .replace(/"/g,"&quot;").replace(/'/g,"&#039;");
+    return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;");
   }
 
 })();
