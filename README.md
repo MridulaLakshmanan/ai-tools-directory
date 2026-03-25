@@ -120,6 +120,7 @@ Tool cards with real data → open modal / filter grid / visit site
 ```
 
 **Security:** Groq API key stored as Supabase Edge Function secret — never in any frontend file, safe to push to GitHub.
+<img width="1470" height="835" alt="Screenshot 2026-03-25 at 10 30 37 PM" src="https://github.com/user-attachments/assets/e814cfaa-e731-4801-afff-9a68d62a7c16" />
 
 ---
 
@@ -200,6 +201,10 @@ Indexes:
 - Hugging Face Inference API (embedding generation)
 
 ---
+<img width="1470" height="835" alt="Screenshot 2026-03-25 at 10 30 37 PM" src="https://github.com/user-attachments/assets/7ca6b989-5f87-495f-985c-6c49a04221de" />
+
+<img width="1470" height="836" alt="Screenshot 2026-03-25 at 10 30 54 PM" src="https://github.com/user-attachments/assets/18a4798e-b95d-4b00-8ef5-1ce54abc3216" />
+
 
 ## 📂 Project Structure
 
@@ -329,7 +334,7 @@ curl -X POST https://your-project.supabase.co/functions/v1/generate-embeddings \
 ## 🎯 Motivation
 
 With hundreds of AI tools emerging daily, users struggle to find the right tool for their needs.  
-This project solves that by combining semantic search and AI reasoning...
+This project is Built to discover new tools and also to explore the high end!!
 
 ## 📄 License
 
