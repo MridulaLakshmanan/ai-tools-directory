@@ -326,6 +326,11 @@ curl -X POST https://your-project.supabase.co/functions/v1/generate-embeddings \
 
 ---
 
+## 🎯 Motivation
+
+With hundreds of AI tools emerging daily, users struggle to find the right tool for their needs.  
+This project solves that by combining semantic search and AI reasoning...
+
 ## 📄 License
 
 MIT License — feel free to fork, extend, and build on top of this project.
