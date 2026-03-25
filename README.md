@@ -120,7 +120,8 @@ Tool cards with real data → open modal / filter grid / visit site
 ```
 
 **Security:** Groq API key stored as Supabase Edge Function secret — never in any frontend file, safe to push to GitHub.
-<img width="1470" height="835" alt="Screenshot 2026-03-25 at 10 30 37 PM" src="https://github.com/user-attachments/assets/e814cfaa-e731-4801-afff-9a68d62a7c16" />
+<img width="1470" height="831" alt="Screenshot 2026-03-25 at 10 31 15 PM" src="https://github.com/user-attachments/assets/355489fa-fe56-46b0-82e3-c3ffa150cd64" />
+
 
 ---
 
